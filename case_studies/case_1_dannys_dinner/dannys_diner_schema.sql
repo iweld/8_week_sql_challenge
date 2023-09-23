@@ -12,13 +12,16 @@ CREATE SCHEMA IF NOT EXISTS dannys_diner;
 
 DROP TABLE IF EXISTS dannys_diner.sales;
 CREATE TABLE dannys_diner.sales (
-  "customer_id" VARCHAR(1),
-  "order_date" DATE,
-  "product_id" INTEGER
+  customer_id VARCHAR(1),
+  order_date DATE,
+  product_id INTEGER
 );
 
-INSERT INTO dannys_diner.sales
-  ("customer_id", "order_date", "product_id")
+INSERT INTO dannys_diner.sales (
+	customer_id, 
+ 	order_date,
+ 	product_id
+ )
 VALUES
   ('A', '2021-01-01', '1'),
   ('A', '2021-01-01', '2'),
@@ -43,13 +46,17 @@ VALUES
  
 DROP TABLE IF EXISTS dannys_diner.menu;
 CREATE TABLE dannys_diner.menu (
-  "product_id" INTEGER,
-  "product_name" VARCHAR(5),
-  "price" INTEGER
+  product_id INTEGER,
+  product_name VARCHAR(5),
+  price INTEGER,
+  PRIMARY KEY (product_id)
 );
 
-INSERT INTO dannys_diner.menu
-  ("product_id", "product_name", "price")
+INSERT INTO dannys_diner.menu (
+	product_id, 
+	product_name, 
+	price
+)
 VALUES
   ('1', 'sushi', '10'),
   ('2', 'curry', '15'),
@@ -62,8 +69,8 @@ VALUES
 
 DROP TABLE IF EXISTS dannys_diner.members;
 CREATE TABLE dannys_diner.members (
-  "customer_id" VARCHAR(1),
-  "join_date" DATE
+  customer_id VARCHAR(1) UNIQUE NOT NULL,
+  join_date DATE
 );
 
 INSERT INTO dannys_diner.members
@@ -71,3 +78,25 @@ INSERT INTO dannys_diner.members
 VALUES
   ('A', '2021-01-07'),
   ('B', '2021-01-09');
+
+/*
+ *  Create Foreign Key Relationship
+ * 
+ */
+ 
+ALTER TABLE
+	dannys_diner.sales
+ADD CONSTRAINT 
+	fk_product_id 
+FOREIGN KEY (product_id)
+REFERENCES 
+	dannys_diner.menu (product_id);
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
