@@ -1,7 +1,15 @@
-/* 
- * Danny's Diner
- * Case Study #1 Questions & Answers
- *  
+/*
+	Danny's Diner (SQL Solutions)
+	SQL Author: Jaime M. Shaker
+	SQL Challenge Creator: Danny Ma (https://www.linkedin.com/in/datawithdanny/) (https://www.datawithdanny.com/)
+	SQL Challenge Location: https://8weeksqlchallenge.com/
+	Email: jaime.m.shaker@gmail.com or jaime@shaker.dev
+	Website: https://www.shaker.dev
+	LinkedIn: https://www.linkedin.com/in/jaime-shaker/
+	
+	File Name: dannys_diner_solutions.sql
+	
+	Case Study #1
 */
 
 -- 1. What is the total amount each customer spent at the restaurant?
