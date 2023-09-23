@@ -16,13 +16,13 @@
 
 SELECT 
 	t1.customer_id,
-	SUM(t1.price) AS total_spent
+	SUM(t2.price) AS total_spent
 FROM 
-	dannys_diner.t1 AS t1
+	dannys_diner.sales AS t1
 JOIN 
-	dannys_diner.menu AS t1 
+	dannys_diner.menu AS t2 
 ON 
-	t1.product_id = t1.product_id
+	t1.product_id = t2.product_id
 GROUP BY 
 	t1.customer_id
 ORDER BY 
@@ -46,7 +46,7 @@ SELECT
 	customer_id,
 	COUNT(DISTINCT order_date) AS number_of_days
 FROM 
-	dannys_diner.t1
+	dannys_diner.sales
 GROUP BY 
 	customer_id
 ORDER BY 
@@ -70,26 +70,27 @@ WITH first_order_cte AS
 (
 	SELECT 
 		t1.customer_id,
-		t1.product_name,
-		ROW_NUMBER() OVER (
+		t1.order_date,
+		t2.product_name,
+		DENSE_RANK() OVER (
 				-- Will customer give a unique row number per order
 				PARTITION BY t1.customer_id 
 				-- Order by date (from earliest to lastest date)
-				ORDER BY t1.order_date, t1.product_id) AS rn
+				ORDER BY t1.order_date) AS ranking
 		FROM 
-			dannys_diner.t1 AS t1
+			dannys_diner.sales AS t1
 		JOIN 
-			dannys_diner.menu AS t1 
+			dannys_diner.menu AS t2 
 		ON 
-			t1.product_id = t1.product_id
+			t1.product_id = t2.product_id
 )
 SELECT 
-	customer_id,
+	DISTINCT customer_id,
 	product_name
 FROM 
 	first_order_cte
 WHERE
-	rn = 1;
+	ranking = 1;
 
 /*
 
@@ -97,6 +98,7 @@ Results:
 
 customer_id|product_name|
 -----------+------------+
+A          |curry       |
 A          |sushi       |
 B          |curry       |
 C          |ramen       |
@@ -107,13 +109,13 @@ C          |ramen       |
 
 SELECT
 	t1.product_name,
-	COUNT(t1.product_id) AS number_purchased
+	COUNT(t2.product_id) AS number_purchased
 FROM
 	dannys_diner.menu AS t1
 JOIN
-	dannys_diner.t1 AS t1 
+	dannys_diner.sales AS t2 
 ON 
-	t1.product_id = t1.product_id
+	t1.product_id = t2.product_id
 GROUP BY 
 	t1.product_name
 ORDER BY 
@@ -136,21 +138,25 @@ WITH most_popular_item_cte AS
 (
 	SELECT 
 		t1.customer_id,
-		t1.product_name,
+		t2.product_name,
+		count(t2.product_id) AS number_purchased,
 		RANK() OVER (
 			PARTITION BY t1.customer_id 
-			ORDER BY COUNT(t1.product_id) DESC) AS popularity_rank
+			ORDER BY COUNT(t2.product_id) DESC) AS popularity_rank
 		FROM 
-			dannys_diner.t1 AS t1
+			dannys_diner.sales AS t1
 		JOIN 
-			dannys_diner.menu as t1
+			dannys_diner.menu as t2
 		ON 
-			t1.product_id = t1.product_id
+			t1.product_id = t2.product_id
 		GROUP BY 
 			t1.customer_id,
-			t1.product_name
+			t2.product_name
 )
-SELECT *
+SELECT
+	customer_id,
+	product_name,
+	number_purchased
 FROM 
 	most_popular_item_cte
 WHERE 
@@ -160,13 +166,13 @@ WHERE
 
 Results:
 
-customer_id|product_name|popularity_rank|
------------+------------+---------------+
-A          |ramen       |              1|
-B          |sushi       |              1|
-B          |curry       |              1|
-B          |ramen       |              1|
-C          |ramen       |              1|
+customer_id|product_name|number_purchased|
+-----------+------------+----------------+
+A          |ramen       |               3|
+B          |curry       |               2|
+B          |sushi       |               2|
+B          |ramen       |               2|
+C          |ramen       |               3|
 
 */
 
@@ -177,24 +183,28 @@ WITH first_member_purchase_cte AS
 	SELECT 
 		t1.customer_id,
 		t3.product_name,
+		t1.join_date,
+		t2.order_date,	
 		RANK() OVER (
 				PARTITION BY t1.customer_id 
-				ORDER BY t1.order_date) as purchase_rank
+				ORDER BY t2.order_date) as purchase_rank
 	FROM 
 		dannys_diner.members AS t1
 	JOIN 
-		dannys_diner.t1 AS t1 
+		dannys_diner.sales AS t2 
 	ON 
-		t1.customer_id = t1.customer_id
+		t1.customer_id = t2.customer_id
 	JOIN 
 		dannys_diner.menu AS t3 
 	ON 
-		t1.product_id = t3.product_id
+		t2.product_id = t3.product_id
 	WHERE 
-		t1.order_date >= t1.join_date
+		t2.order_date >= t1.join_date
 )
 SELECT
 	customer_id,
+	join_date,
+	order_date,
 	product_name
 FROM 
 	first_member_purchase_cte
@@ -205,10 +215,10 @@ WHERE
 
 Results:
 
-customer_id|product_name|
------------+------------+
-A          |curry       |
-B          |sushi       |
+customer_id|join_date |order_date|product_name|
+-----------+----------+----------+------------+
+A          |2021-01-07|2021-01-07|curry       |
+B          |2021-01-09|2021-01-11|sushi       |
 
 */
 
@@ -219,24 +229,28 @@ WITH last_nonmember_purchase_cte AS
 	SELECT 
 		t1.customer_id,
 		t3.product_name,
+		t2.order_date,
+		t1.join_date,
 		RANK() OVER (
 				PARTITION BY t1.customer_id 
-				ORDER BY t1.order_date DESC) as purchase_rank
+				ORDER BY t2.order_date DESC) as purchase_rank
 		FROM 
 			dannys_diner.members AS t1
 		JOIN 
-			dannys_diner.t1 AS t1 
+			dannys_diner.sales AS t2 
 		ON 
-			t1.customer_id = t1.customer_id
+			t2.customer_id = t1.customer_id
 		JOIN 
 			dannys_diner.menu AS  t3 
 		ON 
-			t1.product_id = t3.product_id
+			t2.product_id = t3.product_id
 		WHERE
-			t1.order_date < t1.join_date
+			t2.order_date < t1.join_date
 )
 SELECT 
 	customer_id,
+	order_date,
+	join_date,
 	product_name
 FROM 
 	last_nonmember_purchase_cte
@@ -247,11 +261,11 @@ WHERE
 
 Results:
 
-customer_id|product_name|
------------+------------+
-A          |sushi       |
-A          |curry       |
-B          |sushi       |
+customer_id|order_date|join_date |product_name|
+-----------+----------+----------+------------+
+A          |2021-01-01|2021-01-07|sushi       |
+A          |2021-01-01|2021-01-07|curry       |
+B          |2021-01-04|2021-01-09|sushi       |
 
 */
 
@@ -266,15 +280,15 @@ WITH total_nonmember_purchase_cte AS
 	FROM 
 		dannys_diner.members AS t1
 	JOIN 	
-		dannys_diner.t1 AS t1 
+		dannys_diner.sales AS t2 
 	ON 
-		t1.customer_id = t1.customer_id
+		t2.customer_id = t1.customer_id
 	JOIN
 		dannys_diner.menu AS t3 
 	ON
-		t1.product_id = t3.product_id
+		t2.product_id = t3.product_id
 	WHERE
-		t1.order_date < t1.join_date
+		t2.order_date < t1.join_date
 	GROUP BY 
 		t1.customer_id
 )
@@ -297,32 +311,30 @@ B          |             3|         40|
 	
 -- 9.  If each $1 spent equates to 10 points and sushi has a 2x points multiplier - how many points would each customer have?
 
-WITH total_member_points_cte AS
+WITH total_customer_points_cte AS
 (
 	SELECT 
 		t1.customer_id as customer,
 		sum(
 			CASE
-				WHEN t3.product_name = 'sushi' THEN (t3.price * 20)
-				ELSE (t3.price * 10)
+				WHEN t2.product_name = 'sushi' THEN (t2.price * 20)
+				ELSE (t2.price * 10)
 			END
 		) AS member_points
 	FROM 
-		dannys_diner.members as t1
-	JOIN 
-		dannys_diner.t1 AS t1 
-	ON
-		t1.customer_id = t1.customer_id
+		dannys_diner.sales as t1
 	JOIN
-		dannys_diner.menu AS t3 
+		dannys_diner.menu AS t2 
 	ON
-		t1.product_id = t3.product_id
+		t1.product_id = t2.product_id
 	GROUP BY 
 		t1.customer_id
 )
 SELECT *
 FROM
-	total_member_points_cte;
+	total_customer_points_cte
+ORDER BY
+	member_points DESC;
 
 /*
 
@@ -330,8 +342,9 @@ Results:
 
 customer|member_points|
 --------+-------------+
-A       |          860|
 B       |          940|
+A       |          860|
+C       |          360|
 
 */
 	
@@ -340,16 +353,16 @@ B       |          940|
 
 WITH jan_member_points_cte AS
 (
-	SELECT 
+	select 
 		t1.customer_id,
 		SUM(
 			CASE
-				WHEN t1.order_date < t1.join_date THEN
+				WHEN t2.order_date < t1.join_date THEN
 					CASE 
 						WHEN t3.product_name = 'sushi' THEN (t3.price * 20)
 						ELSE (t3.price * 10)
 					END
-				WHEN t1.order_date > (t1.join_date + 6) THEN 
+				WHEN t2.order_date > (t1.join_date + 6) THEN 
 					CASE 
 						WHEN t3.product_name = 'sushi' THEN (t3.price * 20)
 						ELSE (t3.price * 10)
@@ -359,15 +372,15 @@ WITH jan_member_points_cte AS
 	FROM
 		dannys_diner.members AS t1
 	JOIN
-		dannys_diner.t1 AS t1 
+		dannys_diner.sales AS t2 
 	ON
-		t1.customer_id = t1.customer_id
+		t2.customer_id = t1.customer_id
 	JOIN
 		dannys_diner.menu AS t3 
 	ON
-		t1.product_id = t3.product_id
+		t2.product_id = t3.product_id
 	WHERE 
-		t1.order_date <= '2021-01-31'
+		t2.order_date <= '2021-01-31'
 	GROUP BY 
 		t1.customer_id
 )

@@ -56,7 +56,7 @@ VALUES
  * 
  */
  
-DROP TABLE IF EXISTS dannys_diner.menu;
+DROP TABLE IF EXISTS dannys_diner.menu CASCADE;
 CREATE TABLE dannys_diner.menu (
   product_id INTEGER,
   product_name VARCHAR(5),

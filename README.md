@@ -19,7 +19,7 @@ All solutions were coded using PostgreSQL.
 
 
 ## Case Studies
-* [Case Study #1 - Danny's Diner](https://github.com/iweld/8-Week-SQL-Challenge/tree/main/Case%20Study%201%20-%20Danny's%20Diner "Danny's Diner")
+* [Case Study #1 - Danny's Diner](./case_studies/case_1_dannys_dinner/README.md)
 * [Case Study #2 - Pizza Runner](https://github.com/iweld/8-Week-SQL-Challenge/tree/main/Case%20Study%202%20-%20Pizza%20Runner "Pizza Runner")
 * [Case Study #3 - Foodie-Fi](https://github.com/iweld/8-Week-SQL-Challenge/tree/main/Case%20Study%203%20-%20Foodie-Fi "Foodie-Fi")
 * [Case Study #4 - Data Bank](https://github.com/iweld/8-Week-SQL-Challenge/tree/main/Case%20Study%204%20-%20Data%20Bank "Data Bank")
