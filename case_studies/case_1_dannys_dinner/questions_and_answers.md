@@ -32,8 +32,6 @@ ORDER BY
 	total_spent DESC;
   ```
 </details>
-<br />
-
 
 **Results:**
 
@@ -61,7 +59,6 @@ ORDER BY
 	number_of_days DESC;
   ```
 </details>
-<br />
 
 **Results:**
 
@@ -105,7 +102,6 @@ WHERE
 	rn = 1;
   ```
 </details>
-<br />
 
 **Results:**
 
@@ -138,7 +134,6 @@ ORDER BY
 LIMIT 1;
   ```
 </details>
-<br />
 
 **Results:**
 
@@ -178,7 +173,6 @@ WHERE
 	popularity_rank = 1;
   ```
 </details>
-<br />
 
 **Results:**
 
@@ -229,7 +223,6 @@ WHERE
 	purchase_rank = 1;
   ```
 </details>
-<br />
 
 **Results:**
 
@@ -275,7 +268,6 @@ WHERE
 	purchase_rank = 1;
   ```
 </details>
-<br />
 
 **Results:**
 
@@ -320,7 +312,6 @@ ORDER BY
 	customer_id;
   ```
 </details>
-<br />
 
 **Results:**
 
@@ -364,7 +355,6 @@ FROM
 	total_member_points_cte;
   ```
 </details>
-<br />
 
 **Results:**
 
@@ -420,7 +410,6 @@ ORDER BY
 	customer_id;
   ```
 </details>
-<br />
 
 **Results:**
 
@@ -486,7 +475,6 @@ ORDER BY
 	customer_id, order_date, product_name;
   ```
 </details>
-<br />
 
 **Results:**
 
@@ -509,7 +497,6 @@ ORDER BY
 	customer_id, order_date, product_name;
   ```
 </details>
-<br />
 
 **Results:**
 
@@ -531,5 +518,6 @@ C          |2021-01-01|ramen       |    12|N     | [NULL]|
 C          |2021-01-01|ramen       |    12|N     | [NULL]|
 C          |2021-01-07|ramen       |    12|N     | [NULL]|
 
+<br />
 
 :exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:
