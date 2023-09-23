@@ -106,18 +106,18 @@ FROM pizza_runner.runner_orders;
 
 **Results:**
 
-order_id|runner_id|pickup_time        |distance|duration  |cancellation           |
---------|---------|-------------------|--------|----------|-----------------------|
-1|        1|2020-01-01 18:15:34|20km    |32 minutes|                       |
-2|        1|2020-01-01 19:10:54|20km    |27 minutes|                       |
-3|        1|2020-01-03 00:12:37|13.4km  |20 mins   |[NULL]                 |
-4|        2|2020-01-04 13:53:03|23.4    |40        |[NULL]                 |
-5|        3|2020-01-08 21:10:57|10      |15        |[NULL]                 |
-6|        3|null               |null    |null      |Restaurant Cancellation|
-7|        2|2020-01-08 21:30:45|25km    |25mins    |null                   |
-8|        2|2020-01-10 00:15:02|23.4 km |15 minute |null                   |
-9|        2|null               |null    |null      |Customer Cancellation  |
-10|        1|2020-01-11 18:50:20|10km    |10minutes |null                   |
+order_id|runner_id|pickup_time            |distance|duration|cancellation           |
+--------|---------|-----------------------|--------|--------|-----------------------|
+1|        1|2021-01-01 18:15:34.000|      20|      32|[NULL]                 |
+2|        1|2021-01-01 19:10:54.000|      20|      27|[NULL]                 |
+3|        1|2021-01-03 00:12:37.000|    13.4|      20|[NULL]                 |
+4|        2|2021-01-04 13:53:03.000|    23.4|      40|[NULL]                 |
+5|        3|2021-01-08 21:10:57.000|      10|      15|[NULL]                 |
+6|        3|                 [NULL]|  [NULL]|  [NULL]|Restaurant Cancellation|
+7|        2|2021-01-08 21:30:45.000|      25|      25|[NULL]                 |
+8|        2|2021-01-10 00:15:02.000|    23.4|      15|[NULL]                 |
+9|        2|                 [NULL]|  [NULL]|  [NULL]|Customer Cancellation  |
+10|        1|2021-01-11 18:50:20.000|      10|      10|[NULL]                 |
 
 ```sql
 DROP TABLE IF EXISTS clean_runner_orders;
@@ -503,7 +503,14 @@ WITH runner_signups AS (
 	SELECT
 		runner_id,
 		registration_date,
-		registration_date - ((registration_date - '2021-01-01') % 7) AS starting_week
+		-- Subtract the registration date from the start of the week
+		-- Use modulo to get remainder from dividing result by 7
+		-- Subtract remainder result from registration date to get start of the week
+		registration_date - ((registration_date - '2021-01-01') % 7) AS starting_week,
+		-- We can also use to DATE_TRUNC to roll back the start of the week
+		-- DATE_TRUNC rolls back to the previous Monday
+		-- 2021-01-01 is a Friday. We must as 4 days to initialize a custom start date
+		-- DATE_TRUNC('week', registration_date)::DATE | 4 AS starting_week
 	FROM runners
 )
 SELECT
@@ -520,174 +527,277 @@ ORDER BY
 
 **Results:**
 
-day_of_week|number_of_pizzas|
------------|----------------|
-Sunday     |               1|
-Monday     |               5|
-Friday     |               5|
-Saturday   |               3|
+starting_week|number_of_runners|
+-------------|-----------------|
+2021-01-01|                2|
+2021-01-08|                1|
+2021-01-15|                1|
 
-#### 2. What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?
+**2.**  What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?
 
-````sql
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
 WITH runner_time AS (
-	SELECT r.runner_id,
-		r.order_id,
-		r.pickup_time,
-		c.order_time,
-		(r.pickup_time - c.order_time) AS runner_arrival_time
-	FROM new_runner_orders AS r
-	JOIN new_customer_orders AS c ON r.order_id = c.order_id
+	SELECT DISTINCT
+		t1.order_id,
+		(t1.pickup_time - t2.order_time) AS runner_arrival_time
+	FROM 
+		clean_runner_orders AS t1
+	JOIN 
+		clean_customer_orders AS t2
+	ON 
+		t1.order_id = t2.order_id
+	WHERE
+		t1.pickup_time IS NOT NULL
 )
-SELECT runner_id,
-	extract(
-		'minutes'
-		FROM avg(runner_arrival_time)
-	) AS avg_arrival_time
-FROM runner_time
-GROUP BY runner_id
-ORDER BY runner_id;
-````
-
-**Results:**
-
-runner_id|avg_arrival_time|
----------|----------------|
-1|            15.0|
-2|            23.0|
-3|            10.0|
-
-#### 3. Is there any relationship between the number of pizzas and how long the order takes to prepare?
-
-````sql
-WITH runner_time AS (
-	SELECT r.runner_id,
-		r.order_id,
-		r.pickup_time,
-		c.order_time,
-		(r.pickup_time - c.order_time) AS runner_arrival_time
-	FROM new_runner_orders AS r
-	JOIN new_customer_orders AS c ON r.order_id = c.order_id
-)
-SELECT runner_id,
-	extract('minutes' FROM avg(runner_arrival_time)) AS avg_arrival_time
-FROM runner_time
-GROUP BY runner_id
-ORDER BY runner_id;
-````
-
-**Results:**
-
-❗  Yes.  Although the type of pizza and specialty orders (exclusions & extras) could also be influencing the preparation time.l 
-
-n_pizzas|avg_order_time|
---------|--------------|
-1|    00:12:21.4|
-2|    00:18:22.5|
-3|      00:29:17|
-
-#### 4a. What was the average distance traveled for each customer?
-
-````sql
-SELECT c.customer_id,
-	floor(avg(r.distance)) AS avg_distance_rounded_down,
-	round(avg(r.distance), 2) AS avg_distance,
-	ceil(avg(r.distance)) AS avg_distance_rounded_up
-FROM new_runner_orders AS r
-JOIN new_customer_orders AS c ON c.order_id = r.order_id
-GROUP BY customer_id
-ORDER BY customer_id;
-````
-
-**Results:**
-
-customer_id|avg_distance_rounded_down|avg_distance|avg_distance_rounded_up|
------------|-------------------------|------------|-----------------------|
-101|                       20|       20.00|                     20|
-102|                       16|       16.73|                     17|
-103|                       23|       23.40|                     24|
-104|                       10|       10.00|                     10|
-105|                       25|       25.00|                     25|
-
-#### 4b. What was the average distance travelled for each runner?
-
-````sql
-SELECT runner_id,
-	floor(avg(distance)) AS avg_distance_rounded_down,
-	round(avg(distance), 2) AS avg_distance,
-	ceil(avg(distance)) AS avg_distance_rounded_up
-FROM new_runner_orders
-GROUP BY runner_id
-ORDER BY runner_id;
-````
-
-**Results:**
-
-runner_id|avg_distance_rounded_down|avg_distance|avg_distance_rounded_up|
----------|-------------------------|------------|-----------------------|
-1|                       15|       15.85|                     16|
-2|                       23|       23.93|                     24|
-3|                       10|       10.00|                     10|
-
-#### 5. What was the difference between the longest and shortest delivery times for all orders?
-
-````sql
 SELECT
-	min(duration) AS min_time,
-	max(duration) AS max_time,
-	max(duration) - min(duration) AS time_diff
-FROM new_runner_orders;
-````
+	EXTRACT('minutes' FROM avg(runner_arrival_time)) AS avg_pickup_time
+FROM
+	runner_time;
+  ```
+</details>
 
 **Results:**
 
-min_time|max_time|time_diff|
---------|--------|---------|
-10|      40|       30|
+avg_pickup_time|
+---------------|
+15|
 
-#### 6. What was the difference between the longest and shortest delivery times for all orders?
+**3.**  Is there any relationship between the number of pizzas and how long the order takes to prepare?
 
-````sql
-WITH customer_order_count AS (
-	SELECT customer_id,
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+DROP TABLE IF EXISTS number_of_pizzas;
+CREATE TEMP TABLE number_of_pizzas AS (
+	SELECT	
 		order_id,
 		order_time,
-		count(pizza_id) AS n_pizzas
-	FROM new_customer_orders
-	GROUP BY customer_id,
+		COUNT(pizza_id) AS n_pizzas
+	FROM 
+		clean_customer_orders
+	GROUP BY 
 		order_id,
-		order_time
+		order_time	
+);
+
+WITH preperation_time_cte AS (
+	SELECT
+		t2.order_id,
+		t1.runner_id,
+		t1.pickup_time,
+		t2.order_time,
+		t2.n_pizzas,
+		(t1.pickup_time - t2.order_time) AS runner_arrival_time
+	FROM 
+		clean_runner_orders AS t1
+	JOIN
+		number_of_pizzas AS t2
+	ON
+		t1.order_id = t2.order_id
+	WHERE 
+		t1.pickup_time IS NOT NULL
 )
-SELECT c.customer_id,
-	r.order_id,
-	r.runner_id,
-	c.n_pizzas,
-	r.distance,
-	r.duration,
-	round(60 * r.distance / r.duration, 2) AS runner_speed
-FROM new_runner_orders AS r
-JOIN customer_order_count AS c 
-ON r.order_id = c.order_id
-WHERE r.pickup_time IS NOT NULL
-ORDER BY runner_speed DESC
-````
+SELECT
+	order_id,
+	n_pizzas AS number_of_pizzas,
+	runner_arrival_time AS pickup_time
+FROM 
+	preperation_time_cte
+ORDER BY 
+	number_of_pizzas, order_id;
+  ```
+</details>
 
 **Results:**
 
-customer_id|order_id|runner_id|n_pizzas|distance|duration|runner_speed|
------------|--------|---------|--------|--------|--------|------------|
-103|       4|        2|       3|    23.4|      40|       35.10|
-101|       1|        1|       1|      20|      32|       37.50|
-104|       5|        3|       1|      10|      15|       40.00|
-102|       3|        1|       2|    13.4|      20|       40.20|
-101|       2|        1|       1|      20|      27|       44.44|
-105|       7|        2|       1|      25|      25|       60.00|
-104|      10|        1|       2|      10|      10|       60.00|
-102|       8|        2|       1|    23.4|      15|       93.60|
+order_id|number_of_pizzas|pickup_time|
+--------|----------------|-----------|
+1|               1|   00:10:32|
+2|               1|   00:10:02|
+5|               1|   00:10:28|
+7|               1|   00:10:16|
+8|               1|   00:20:29|
+3|               2|   00:21:14|
+10|               2|   00:15:31|
+4|               3|   00:29:17|
+
+**4a.**  What was the average distance traveled for each customer?
+
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH get_distances AS (
+	SELECT
+		t2.customer_id,
+		t2.order_id,
+		t1.distance
+	FROM 
+		clean_runner_orders AS t1
+	JOIN
+		clean_customer_orders AS t2
+	ON 
+		t2.order_id = t1.order_id
+	WHERE
+		t1.distance IS NOT NULL
+	GROUP BY 
+		t2.customer_id,
+		t1.distance,
+		t2.order_id
+	ORDER BY 
+		t2.customer_id
+)
+SELECT
+	customer_id,
+	round(avg(distance), 2) AS avg_distance
+FROM
+	get_distances
+GROUP BY
+	customer_id;
+  ```
+</details>
+
+**Results:**
+
+customer_id|avg_distance|
+-----------|------------|
+101|       20.00|
+102|       18.40|
+103|       23.40|
+104|       10.00|
+105|       25.00|
+
+**4b.**  What was the average distance traveled for each runner?
+
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH get_distances AS (
+	SELECT
+		t1.runner_id,
+		t2.order_id,
+		t1.distance
+	FROM 
+		clean_runner_orders AS t1
+	JOIN
+		clean_customer_orders AS t2
+	ON 
+		t2.order_id = t1.order_id
+	WHERE
+		t1.distance IS NOT NULL
+	GROUP BY 
+		t1.runner_id,
+		t1.distance,
+		t2.order_id
+	ORDER BY 
+		t1.runner_id
+)
+SELECT
+	runner_id,
+	round(avg(distance), 2) AS avg_distance
+FROM
+	get_distances
+GROUP BY
+	runner_id;    
+  ```
+</details>
+
+**Results:**
+
+runner_id|avg_distance|
+---------|------------|
+1|       15.85|
+2|       23.93|
+3|       10.00|
+
+**5.**  What was the difference between the longest and shortest delivery times for all orders?
+
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT
+	MAX(duration) - MIN(duration) AS time_difference
+FROM 
+	clean_runner_orders;
+  ```
+</details>
+
+**Results:**
+
+time_difference|
+---------------|
+30|
+
+**6.**  What was the average speed for each runner for each delivery and do you notice any trend for these values?
+
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH customer_order_count AS (
+	SELECT
+		customer_id,
+		order_id,
+		order_time,
+		COUNT(pizza_id) AS n_pizzas
+	FROM 
+		clean_customer_orders
+	GROUP BY 
+		customer_id,
+		order_id,
+		order_time		
+)
+SELECT
+	t2.customer_id,
+	t1.order_id,
+	t1.runner_id,
+	t2.n_pizzas,
+	t1.distance,
+	t1.duration,
+	ROUND(60 * t1.distance / t1.duration, 2) AS avg_speed_kph,
+	ROUND((60 * t1.distance / t1.duration) / 1.609, 2) AS avg_speed_mph
+FROM
+	clean_runner_orders AS t1
+JOIN
+	customer_order_count AS t2
+ON
+	t1.order_id = t2.order_id
+WHERE
+	t1.pickup_time IS NOT NULL
+ORDER BY
+	order_id;
+  ```
+</details>
+
+**Results:**
+
+customer_id|order_id|runner_id|n_pizzas|distance|duration|avg_speed_kph|avg_speed_mph|
+-----------|--------|---------|--------|--------|--------|-------------|-------------|
+101|       1|        1|       1|      20|      32|        37.50|        23.31|
+101|       2|        1|       1|      20|      27|        44.44|        27.62|
+102|       3|        1|       2|    13.4|      20|        40.20|        24.98|
+103|       4|        2|       3|    23.4|      40|        35.10|        21.81|
+104|       5|        3|       1|      10|      15|        40.00|        24.86|
+105|       7|        2|       1|      25|      25|        60.00|        37.29|
+102|       8|        2|       1|    23.4|      15|        93.60|        58.17|
+104|      10|        1|       2|      10|      10|        60.00|        37.29|
 
 
 
-❗ **Noticable Trend** ❗ As long as weather and road conditions are not a factor, customer #102 appears to be a tremendous tipper and runner #2 will violate every law in an attempt to deliver the pizza quickly. Although the slowest runner carried three pizzas, other runners carrying only 1 pizza has similar slow speeds which may have been caused by bad weather conditions or some other factor. 
+❗ **Noticable Trend** ❗ 
+As long as weather and road conditions are not a factor, the runner are relatively slow drivers.
 
 #### 7.  What is the successful delivery percentage for each runner?
 
