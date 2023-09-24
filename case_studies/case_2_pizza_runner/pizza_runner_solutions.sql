@@ -910,14 +910,15 @@ Bacon              |
 DROP TABLE IF EXISTS get_exclusions;
 CREATE TEMP TABLE get_exclusions AS (
 	SELECT
+		ROW_NUMBER() OVER () AS row_id,
 		order_id,
-		TRIM(UNNEST(STRING_TO_ARRAY(exclusions, ',')))::NUMERIC AS exclusions,
-		count(*) AS e_count
+		TRIM(UNNEST(STRING_TO_ARRAY(exclusions, ','))) AS exclusions,
+		COUNT(*) AS total_exclusions
 	FROM 
 		clean_customer_orders
 	WHERE
 		exclusions IS NOT NULL
-	GROUP BY 
+	GROUP BY
 		order_id,
 		exclusions
 );
@@ -925,17 +926,18 @@ CREATE TEMP TABLE get_exclusions AS (
 WITH most_common_exclusion AS (
 	SELECT
 		exclusions,
-		SUM(e_count) AS total_exclusions
+		total_exclusions
 	FROM
 		get_exclusions
-	GROUP BY
-		exclusions
 )
 SELECT
 	t1.topping_name AS most_excluded_topping
-FROM pizza_toppings AS t1
-JOIN most_common_exclusion AS t2
-ON t2.exclusions = t1.topping_id
+FROM 
+	pizza_toppings AS t1
+JOIN 
+	most_common_exclusion AS t2
+ON 
+	t2.exclusions::NUMERIC = t1.topping_id
 ORDER BY
 	total_exclusions DESC
 LIMIT 1;
@@ -982,7 +984,7 @@ WITH get_exlusions_and_extras AS (
 			ELSE 
 				(
 					SELECT
-						string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exc.exclusions), ', ')
+						string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exc.exclusions::NUMERIC), ', ')
 					FROM
 						get_exclusions AS get_exc
 					WHERE 
@@ -1224,6 +1226,38 @@ order_id|customer_id|pizza_id|order_time             |original_row_number|toppin
 
 -- 6. What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
 
+SELECT
+	exclusions
+FROM
+	get_exclusions
+
+WITH get_toppings AS (
+	SELECT
+		single_toppings
+	FROM
+		get_pizza_toppings
+	UNION ALL
+	SELECT
+		extras
+	FROM
+		get_extras
+)
+SELECT
+	t2.topping_name,
+	count(*) AS total_toppings
+FROM
+	get_toppings AS t1
+JOIN
+	pizza_runner.pizza_toppings AS t2
+ON 
+	t1.single_toppings = t2.topping_id
+GROUP BY
+	t2.topping_name
+ORDER BY
+	total_toppings DESC;
+
+
+
 WITH cte_cleaned_customer_orders AS (
   SELECT
     order_id,
@@ -1307,20 +1341,20 @@ ORDER BY topping_count DESC;
     
 -- Results
 
-topping_name|total_toppings|
-------------+--------------+
-Cheese      |            15|
-Bacon       |            14|
-Mushrooms   |            14|
-Chicken     |            11|
-Pepperoni   |            10|
-Salami      |            10|
-BBQ Sauce   |            10|
-Beef        |            10|
-Tomato Sauce|             4|
-Onions      |             4|
-Tomatoes    |             4|
-Peppers     |             4|
+topping_name|topping_count|
+------------+-------------+
+Bacon       |           14|
+Mushrooms   |           13|
+Chicken     |           11|
+Cheese      |           11|
+Pepperoni   |           10|
+Salami      |           10|
+Beef        |           10|
+BBQ Sauce   |            9|
+Tomato Sauce|            4|
+Onions      |            4|
+Tomatoes    |            4|
+Peppers     |            4|
     
 /* 
  * Pizza Runner

@@ -974,14 +974,15 @@ Bacon              |
 DROP TABLE IF EXISTS get_exclusions;
 CREATE TEMP TABLE get_exclusions AS (
 	SELECT
+		ROW_NUMBER() OVER () AS row_id,
 		order_id,
-		TRIM(UNNEST(STRING_TO_ARRAY(exclusions, ',')))::NUMERIC AS exclusions,
-		count(*) AS e_count
+		TRIM(UNNEST(STRING_TO_ARRAY(exclusions, ','))) AS exclusions,
+		COUNT(*) AS total_exclusions
 	FROM 
 		clean_customer_orders
 	WHERE
 		exclusions IS NOT NULL
-	GROUP BY 
+	GROUP BY
 		order_id,
 		exclusions
 );
@@ -989,17 +990,18 @@ CREATE TEMP TABLE get_exclusions AS (
 WITH most_common_exclusion AS (
 	SELECT
 		exclusions,
-		SUM(e_count) AS total_exclusions
+		total_exclusions
 	FROM
 		get_exclusions
-	GROUP BY
-		exclusions
 )
 SELECT
 	t1.topping_name AS most_excluded_topping
-FROM pizza_toppings AS t1
-JOIN most_common_exclusion AS t2
-ON t2.exclusions = t1.topping_id
+FROM 
+	pizza_toppings AS t1
+JOIN 
+	most_common_exclusion AS t2
+ON 
+	t2.exclusions::NUMERIC = t1.topping_id
 ORDER BY
 	total_exclusions DESC
 LIMIT 1;
@@ -1049,7 +1051,7 @@ WITH get_exlusions_and_extras AS (
 			ELSE 
 				(
 					SELECT
-						string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exc.exclusions), ', ')
+						string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exc.exclusions::NUMERIC), ', ')
 					FROM
 						get_exclusions AS get_exc
 					WHERE 
@@ -1271,52 +1273,81 @@ ORDER BY
 
 **Results:**
 
-most_excluded_topping|
----------------------|
-Cheese               |
+order_id|customer_id|pizza_id|order_time             |original_row_number|toppings                                                                  |
+--------|-----------|--------|-----------------------|-------------------|--------------------------------------------------------------------------|
+1|        101|       1|2021-01-01 18:05:02.000|                  1|Meatlovers: Bacon,Beef,Cheese,Chicken,Meatlovers: Bacon,Pepperoni,Salami  |
+2|        101|       1|2021-01-01 19:00:52.000|                  2|Meatlovers: Bacon,Beef,Chicken,Meatlovers: Bacon,Pepperoni,Salami         |
+3|        102|       1|2021-01-02 23:51:23.000|                  3|Meatlovers: Bacon,Beef,Chicken,Meatlovers: Bacon,Pepperoni,Salami         |
+3|        102|       2|2021-01-02 23:51:23.000|                  4|Vegetarian: Bacon,Chicken,Peppers,Tomatoes,Tomato Sauce,Vegetarian: Onions|
+4|        103|       1|2021-01-04 13:23:46.000|                  5|Meatlovers: Beef,Chicken,Meatlovers: Bacon,Pepperoni,Salami               |
+4|        103|       1|2021-01-04 13:23:46.000|                  6|Meatlovers: Beef,Chicken,Meatlovers: Bacon,Pepperoni,Salami               |
+4|        103|       2|2021-01-04 13:23:46.000|                  7|Vegetarian: Peppers,Tomatoes,Tomato Sauce,Vegetarian: Onions              |
+5|        104|       1|2021-01-08 21:00:29.000|                  8|Meatlovers: Beef,Chicken,Meatlovers: Bacon,Pepperoni,Salami               |
+6|        101|       2|2021-01-08 21:03:13.000|                  9|Vegetarian: Peppers,Tomatoes,Tomato Sauce,Vegetarian: Onions              |
+7|        105|       2|2021-01-08 21:20:29.000|                 10|Vegetarian: Peppers,Tomatoes,Tomato Sauce,Vegetarian: Onions              |
+8|        102|       1|2021-01-09 23:54:33.000|                 11|Meatlovers: Beef,Chicken,Meatlovers: Bacon,Pepperoni,Salami               |
+9|        103|       1|2021-01-10 11:22:59.000|                 12|Meatlovers: Beef,Chicken,Meatlovers: Bacon,Pepperoni,Salami               |
+10|        104|       1|2021-01-11 18:34:49.000|                 13|Meatlovers: Beef,Chicken,Meatlovers: Bacon,Pepperoni,Salami               |
+10|        104|       1|2021-01-11 18:34:49.000|                 14|Meatlovers: Beef,Chicken,Meatlovers: Bacon,Pepperoni,Salami               |
 
-#### 6. What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
+**6.**  What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
 
-````sql
-WITH get_each_ingredient AS (
-	SELECT 
-		row_id,
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+DROP TABLE IF EXISTS get_exclusions;
+CREATE TEMP TABLE get_exclusions AS (
+	SELECT
 		order_id,
-		pizza_name,
-		UNNEST(string_to_array(all_ingredients, ',')) AS each_ing
-	FROM ingredients
+		TRIM(UNNEST(STRING_TO_ARRAY(exclusions, ',')))::NUMERIC AS exclusions,
+		count(*) AS e_count
+	FROM 
+		clean_customer_orders
+	WHERE
+		exclusions IS NOT NULL
+	GROUP BY 
+		order_id,
+		exclusions
+);
+
+WITH most_common_exclusion AS (
+	SELECT
+		exclusions,
+		SUM(e_count) AS total_exclusions
+	FROM
+		get_exclusions
+	GROUP BY
+		exclusions
 )
 SELECT
-	each_ing,
-	count(each_ing) AS n_ingredients
-from
-	get_each_ingredient AS gei
-JOIN new_runner_orders AS r
-ON r.order_id = gei.order_id
-WHERE 
-	each_ing <> ''
-AND 
-	r.cancellation IS NULL
-GROUP BY each_ing
-ORDER BY n_ingredients DESC;
-````
+	t1.topping_name AS most_excluded_topping
+FROM pizza_toppings AS t1
+JOIN most_common_exclusion AS t2
+ON t2.exclusions = t1.topping_id
+ORDER BY
+	total_exclusions DESC
+LIMIT 1;
+  ```
+</details>
 
 **Results:**
 
-each_ing    |n_ingredients|
+topping_name|topping_count|
 ------------|-------------|
-Bacon       |           12|
-Mushrooms   |           11|
-Cheese      |           10|
-Chicken     |            9|
-Salami      |            9|
-Pepperoni   |            9|
-Beef        |            9|
-BBQ Sauce   |            8|
-Tomato Sauce|            3|
-Tomatoes    |            3|
-Peppers     |            3|
-Onions      |            3|
+Bacon       |           14|
+Mushrooms   |           13|
+Chicken     |           11|
+Cheese      |           11|
+Pepperoni   |           10|
+Salami      |           10|
+Beef        |           10|
+BBQ Sauce   |            9|
+Tomato Sauce|            4|
+Onions      |            4|
+Tomatoes    |            4|
+Peppers     |            4|
 
 ###Pricing & Ratings
 
