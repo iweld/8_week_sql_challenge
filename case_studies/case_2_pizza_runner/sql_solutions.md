@@ -1297,38 +1297,86 @@ order_id|customer_id|pizza_id|order_time             |original_row_number|toppin
 
   ##### Answer
   ```sql
-DROP TABLE IF EXISTS get_exclusions;
-CREATE TEMP TABLE get_exclusions AS (
+WITH cte_cleaned_customer_orders AS (
+  SELECT
+    *,
+    ROW_NUMBER() OVER () AS original_row_number
+  FROM 
+  	clean_customer_orders
+),
+-- split the toppings using our previous solution
+cte_regular_toppings AS (
 	SELECT
-		order_id,
-		TRIM(UNNEST(STRING_TO_ARRAY(exclusions, ',')))::NUMERIC AS exclusions,
-		count(*) AS e_count
+		pizza_id,
+	  	REGEXP_SPLIT_TO_TABLE(toppings, '[,\s]|')::INTEGER AS topping_id
 	FROM 
-		clean_customer_orders
-	WHERE
-		exclusions IS NOT NULL
-	GROUP BY 
-		order_id,
-		exclusions
-);
-
-WITH most_common_exclusion AS (
+		pizza_runner.pizza_recipes
+),
+-- now we can should left join our regular toppings with all pizzas orders
+cte_base_toppings AS (
 	SELECT
-		exclusions,
-		SUM(e_count) AS total_exclusions
-	FROM
-		get_exclusions
-	GROUP BY
-		exclusions
+		t1.order_id,
+	    t1.customer_id,
+	    t1.pizza_id,
+	    t1.order_time,
+	    t1.original_row_number,
+	    t2.topping_id
+	FROM 
+		cte_cleaned_customer_orders AS t1
+	LEFT JOIN 
+		cte_regular_toppings AS t2
+	ON 
+		t1.pizza_id = t2.pizza_id
+),
+-- now we can generate CTEs for exclusions and extras by the original row number
+cte_exclusions AS (
+	SELECT
+    	order_id,
+    	customer_id,
+    	pizza_id,
+    	order_time,
+    	original_row_number,
+    	REGEXP_SPLIT_TO_TABLE(exclusions, '[,\s]|')::INTEGER AS topping_id
+  	FROM 
+  		cte_cleaned_customer_orders
+  	WHERE 
+  		exclusions IS NOT NULL
+),
+cte_extras AS (
+	SELECT
+    	order_id,
+    	customer_id,
+    	pizza_id,
+    	order_time,
+    	original_row_number,
+    	REGEXP_SPLIT_TO_TABLE(extras, '[,\s]|')::INTEGER AS topping_id
+  	FROM 
+  		cte_cleaned_customer_orders
+  	WHERE 
+  		extras IS NOT NULL
+),
+-- now we can perform an except and a union all on the respective CTEs
+cte_combined_orders AS (
+	SELECT * FROM cte_base_toppings
+  	EXCEPT
+  	SELECT * FROM cte_exclusions
+  	UNION ALL
+  	SELECT * FROM cte_extras
 )
+-- perform aggregation on topping_id and join to get topping names
 SELECT
-	t1.topping_name AS most_excluded_topping
-FROM pizza_toppings AS t1
-JOIN most_common_exclusion AS t2
-ON t2.exclusions = t1.topping_id
-ORDER BY
-	total_exclusions DESC
-LIMIT 1;
+  	t2.topping_name,
+  	COUNT(*) AS topping_count
+FROM 
+	cte_combined_orders AS t1
+INNER JOIN 
+	pizza_runner.pizza_toppings AS t2
+ON 
+	t1.topping_id = t2.topping_id
+GROUP BY 
+	t2.topping_name
+ORDER BY 
+	topping_count DESC;
   ```
 </details>
 
@@ -1349,99 +1397,89 @@ Onions      |            4|
 Tomatoes    |            4|
 Peppers     |            4|
 
-###Pricing & Ratings
+#### Part D. Pricing & Ratings
 
-#### 1. If a Meat Lovers pizza costs \$12 and Vegetarian costs \$10 and there were no charges for changes - how much money has Pizza Runner made so far if there are no delivery fees? 
+**1.**  If a Meat Lovers pizza costs \$12 and Vegetarian costs \$10 and there were no charges for changes - how much money has Pizza Runner made so far if there are no delivery fees?
 
-````sql
-DROP TABLE IF EXISTS pizza_income;
-CREATE TEMP TABLE pizza_income AS (
-	SELECT
-		sum(total_meatlovers) | sum(total_veggie) AS total_income
-	from
-		(SELECT 
-			c.order_id,
-			c.pizza_id,
-			sum(
-				CASE
-					WHEN pizza_id = 1 THEN 12
-					ELSE 0
-				END
-			) AS total_meatlovers,
-			sum(
-				CASE
-					WHEN pizza_id = 2 THEN 10
-					ELSE 0
-				END
-			) AS total_veggie
-		FROM new_customer_orders AS c
-		JOIN new_runner_orders AS r
-		ON r.order_id = c.order_id
-		WHERE 
-			r.cancellation IS NULL
-		GROUP BY 
-			c.order_id,
-			c.pizza_id,
-			c.extras) AS tmp);
-		
-SELECT * FROM pizza_income;
-````
+❗ **Note** ❗ Total Revenue without excluding cancelled orders.
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT
+	SUM(
+		CASE
+			WHEN pizza_id = 1 THEN 12
+			WHEN pizza_id = 2 THEN 10
+		END
+	) AS pizza_revenue_before_cancellation
+FROM 
+	clean_customer_orders;
+  ```
+</details>
 
 **Results:**
 
-total_income|
-------------|
+pizza_revenue_before_cancellation|
+---------------------------------|
+160|
+
+❗ **Note** ❗ Total Revenue excluding cancelled orders.
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT
+	SUM(
+		CASE
+			WHEN pizza_id = 1 THEN 12
+			WHEN pizza_id = 2 THEN 10
+		END
+	) AS pizza_revenue_after_cancellation
+FROM 
+	clean_customer_orders AS t1
+JOIN 
+	clean_runner_orders AS t2
+ON 
+	t1.order_id = t2.order_id
+WHERE
+	t2.cancellation IS NULL;
+  ```
+</details>
+
+**Results:**
+
+pizza_revenue_after_cancellation|
+--------------------------------|
 138|
 
-#### 2. What if there was an additional \$1 charge for any pizza extras? 
+**2.**  What if there was an additional $1 charge for any pizza extras?
 
-````sql
-DROP TABLE IF EXISTS get_extras_cost;
-CREATE TEMP TABLE get_extras_cost AS (
-	SELECT order_id,
-		count(each_extra) AS total_extras
-	from (
-			SELECT order_id,
-				UNNEST(string_to_array(extras, ',')) AS each_extra
-			FROM new_customer_orders
-		) AS tmp
-	GROUP BY order_id
-);
-with calculate_totals as (
-	SELECT 
-		c.order_id,
-		c.pizza_id,
-		sum(
-			CASE
-				WHEN pizza_id = 1 THEN 12
-				ELSE 0
-			END
-		) AS total_meatlovers,
-		sum(
-			CASE
-				WHEN pizza_id = 2 THEN 10
-				ELSE 0
-			END
-		) AS total_veggie,
-		gec.total_extras
-	FROM new_customer_orders AS c
-	JOIN new_runner_orders AS r ON r.order_id = c.order_id
-	LEFT JOIN get_extras_cost AS gec ON gec.order_id = c.order_id
-	WHERE r.cancellation IS NULL
-	GROUP BY c.order_id,
-		c.pizza_id,
-		c.extras,
-		gec.total_extras
-)
-SELECT sum(total_meatlovers) | sum(total_veggie) | sum(total_extras) AS total_income
-FROM calculate_totals;
-````
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT
+	SUM(
+		CASE
+			WHEN pizza_id = 1 THEN 12
+			WHEN pizza_id = 2 THEN 10
+		END
+	) AS pizza_revenue_before_cancellation
+FROM 
+	clean_customer_orders;
+  ```
+</details>
 
 **Results:**
 
-total_income|
-------------|
-144|
+pizza_revenue_before_cancellation|
+---------------------------------|
+160|
+
 
 #### 3. The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would  you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for  each successful customer order between 1 to 5.
 

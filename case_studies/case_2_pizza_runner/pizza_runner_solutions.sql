@@ -926,9 +926,11 @@ CREATE TEMP TABLE get_exclusions AS (
 WITH most_common_exclusion AS (
 	SELECT
 		exclusions,
-		total_exclusions
+		sum(total_exclusions) AS total_exclusions
 	FROM
 		get_exclusions
+	GROUP BY
+		exclusions
 )
 SELECT
 	t1.topping_name AS most_excluded_topping
@@ -1224,117 +1226,86 @@ order_id|customer_id|pizza_id|order_time             |original_row_number|toppin
 
 -- 6. What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
 
-SELECT
-	exclusions
-FROM
-	get_exclusions
-
-WITH get_toppings AS (
-	SELECT
-		single_toppings
-	FROM
-		get_pizza_toppings
-	UNION ALL
-	SELECT
-		extras
-	FROM
-		get_extras
-)
-SELECT
-	t2.topping_name,
-	count(*) AS total_toppings
-FROM
-	get_toppings AS t1
-JOIN
-	pizza_runner.pizza_toppings AS t2
-ON 
-	t1.single_toppings = t2.topping_id
-GROUP BY
-	t2.topping_name
-ORDER BY
-	total_toppings DESC;
-
-
-
 WITH cte_cleaned_customer_orders AS (
   SELECT
-    order_id,
-    customer_id,
-    pizza_id,
-    CASE
-      WHEN exclusions IN ('', 'null') THEN NULL
-      ELSE exclusions
-    END AS exclusions,
-    CASE
-      WHEN extras IN ('', 'null', 'NaN') THEN NULL
-      ELSE extras
-    END AS extras,
-    order_time,
+    *,
     ROW_NUMBER() OVER () AS original_row_number
-  FROM pizza_runner.customer_orders
+  FROM 
+  	clean_customer_orders
 ),
 -- split the toppings using our previous solution
 cte_regular_toppings AS (
-SELECT
-  pizza_id,
-  REGEXP_SPLIT_TO_TABLE(toppings, '[,\s]+')::INTEGER AS topping_id
-FROM pizza_runner.pizza_recipes
+	SELECT
+		pizza_id,
+	  	REGEXP_SPLIT_TO_TABLE(toppings, '[,\s]+')::INTEGER AS topping_id
+	FROM 
+		pizza_runner.pizza_recipes
 ),
 -- now we can should left join our regular toppings with all pizzas orders
 cte_base_toppings AS (
-  SELECT
-    cte_cleaned_customer_orders.order_id,
-    cte_cleaned_customer_orders.customer_id,
-    cte_cleaned_customer_orders.pizza_id,
-    cte_cleaned_customer_orders.order_time,
-    cte_cleaned_customer_orders.original_row_number,
-    cte_regular_toppings.topping_id
-  FROM cte_cleaned_customer_orders
-  LEFT JOIN cte_regular_toppings
-    ON cte_cleaned_customer_orders.pizza_id = cte_regular_toppings.pizza_id
+	SELECT
+		t1.order_id,
+	    t1.customer_id,
+	    t1.pizza_id,
+	    t1.order_time,
+	    t1.original_row_number,
+	    t2.topping_id
+	FROM 
+		cte_cleaned_customer_orders AS t1
+	LEFT JOIN 
+		cte_regular_toppings AS t2
+	ON 
+		t1.pizza_id = t2.pizza_id
 ),
 -- now we can generate CTEs for exclusions and extras by the original row number
 cte_exclusions AS (
-  SELECT
-    order_id,
-    customer_id,
-    pizza_id,
-    order_time,
-    original_row_number,
-    REGEXP_SPLIT_TO_TABLE(exclusions, '[,\s]+')::INTEGER AS topping_id
-  FROM cte_cleaned_customer_orders
-  WHERE exclusions IS NOT NULL
+	SELECT
+    	order_id,
+    	customer_id,
+    	pizza_id,
+    	order_time,
+    	original_row_number,
+    	REGEXP_SPLIT_TO_TABLE(exclusions, '[,\s]+')::INTEGER AS topping_id
+  	FROM 
+  		cte_cleaned_customer_orders
+  	WHERE 
+  		exclusions IS NOT NULL
 ),
--- check this one!
 cte_extras AS (
-  SELECT
-    order_id,
-    customer_id,
-    pizza_id,
-    order_time,
-    original_row_number,
-    REGEXP_SPLIT_TO_TABLE(extras, '[,\s]+')::INTEGER AS topping_id
-  FROM cte_cleaned_customer_orders
-  WHERE extras IS NOT NULL
+	SELECT
+    	order_id,
+    	customer_id,
+    	pizza_id,
+    	order_time,
+    	original_row_number,
+    	REGEXP_SPLIT_TO_TABLE(extras, '[,\s]+')::INTEGER AS topping_id
+  	FROM 
+  		cte_cleaned_customer_orders
+  	WHERE 
+  		extras IS NOT NULL
 ),
 -- now we can perform an except and a union all on the respective CTEs
--- also check this one!
 cte_combined_orders AS (
-  SELECT * FROM cte_base_toppings
-  EXCEPT
-  SELECT * FROM cte_exclusions
-  UNION ALL
-  SELECT * FROM cte_extras
+	SELECT * FROM cte_base_toppings
+  	EXCEPT
+  	SELECT * FROM cte_exclusions
+  	UNION ALL
+  	SELECT * FROM cte_extras
 )
 -- perform aggregation on topping_id and join to get topping names
 SELECT
-  t2.topping_name,
-  COUNT(*) AS topping_count
-FROM cte_combined_orders AS t1
-INNER JOIN pizza_runner.pizza_toppings AS t2
-  ON t1.topping_id = t2.topping_id
-GROUP BY t2.topping_name
-ORDER BY topping_count DESC;
+  	t2.topping_name,
+  	COUNT(*) AS topping_count
+FROM 
+	cte_combined_orders AS t1
+INNER JOIN 
+	pizza_runner.pizza_toppings AS t2
+ON 
+	t1.topping_id = t2.topping_id
+GROUP BY 
+	t2.topping_name
+ORDER BY 
+	topping_count DESC;
 	
     
 -- Results
@@ -1364,43 +1335,45 @@ Peppers     |            4|
 -- 1. If a Meat Lovers pizza costs $12 and Vegetarian costs $10 and there were no charges for 
 -- changes - how much money has Pizza Runner made so far if there are no delivery fees?    
 
-DROP TABLE IF EXISTS pizza_income;
-CREATE TEMP TABLE pizza_income AS (
-	SELECT
-		SUM(total_meatlovers) + SUM(total_veggie) AS total_income
-	from
-		(SELECT 
-			c.order_id,
-			c.pizza_id,
-			SUM(
-				CASE
-					WHEN pizza_id = 1 THEN 12
-					ELSE 0
-				END
-			) AS total_meatlovers,
-			SUM(
-				CASE
-					WHEN pizza_id = 2 THEN 10
-					ELSE 0
-				END
-			) AS total_veggie
-		FROM clean_customer_orders AS c
-		JOIN clean_runner_orders AS r
-		ON r.order_id = c.order_id
-		WHERE 
-			r.cancellation IS NULL
-		GROUP BY 
-			c.order_id,
-			c.pizza_id,
-			c.extras) AS tmp);
-		
-SELECT * FROM pizza_income;
+SELECT
+	SUM(
+		CASE
+			WHEN pizza_id = 1 THEN 12
+			WHEN pizza_id = 2 THEN 10
+		END
+	) AS pizza_revenue_before_cancellation
+FROM 
+	clean_customer_orders;
+    
+/*
+
+pizza_revenue_before_cancellation|
+---------------------------------+
+                              160|
+                              
+*/                              
+          
+SELECT
+	SUM(
+		CASE
+			WHEN pizza_id = 1 THEN 12
+			WHEN pizza_id = 2 THEN 10
+		END
+	) AS pizza_revenue
+FROM 
+	clean_customer_orders AS t1
+JOIN 
+	clean_runner_orders AS t2
+ON 
+	t1.order_id = t2.order_id
+WHERE
+	t2.cancellation IS NULL;
     
 -- Results
 
-total_income|
-------------+
-         138|
+pizza_revenue|
+-------------+
+          160|          
          
 -- 2. What if there was an additional $1 charge for any pizza extras?
 
