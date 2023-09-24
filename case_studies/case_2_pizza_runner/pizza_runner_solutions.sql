@@ -1308,7 +1308,7 @@ ORDER BY
 	topping_count DESC;
 	
     
--- Results
+/*
 
 topping_name|topping_count|
 ------------+-------------+
@@ -1324,6 +1324,8 @@ Tomato Sauce|            4|
 Onions      |            4|
 Tomatoes    |            4|
 Peppers     |            4|
+
+*/
     
 /* 
  * Pizza Runner
@@ -1369,11 +1371,13 @@ ON
 WHERE
 	t2.cancellation IS NULL;
     
--- Results
+/*
 
 pizza_revenue_after_cancellation|
 --------------------------------+
-                             138|          
+                             138|
+                             
+*/                                                 
          
 -- 2. What if there was an additional $1 charge for any pizza extras?
 
@@ -1427,11 +1431,13 @@ SELECT
 FROM 
 	calculate_totals;
     
--- Results   
+/*   
 
 total_income|
 ------------+
          142|
+         
+*/        
          
 -- 3. The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would 
 -- you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for 
@@ -1519,7 +1525,7 @@ GROUP BY
 ORDER BY 
 	t1.order_id;
          
--- Results:
+/*
 
 customer_id|order_id|runner_id|rating|order_time             |pickup_time            |time_diff|duration|avg_speed_kph|total_delivered|
 -----------+--------+---------+------+-----------------------+-----------------------+---------+--------+-------------+---------------+
@@ -1532,6 +1538,7 @@ customer_id|order_id|runner_id|rating|order_time             |pickup_time       
         102|       8|        2|     5|2021-01-09 23:54:33.000|2021-01-10 00:15:02.000| 00:20:29|      15|        93.60|              1|
         104|      10|        1|     3|2021-01-11 18:34:49.000|2021-01-11 18:50:20.000| 00:15:31|      10|        60.00|              2|
 
+*/
 
 -- 5. If a Meat Lovers pizza was $12 and Vegetarian $10 fixed prices with no cost for extras and each runner is paid $0.30 per 
 -- kilometer traveled - how much money does Pizza Runner have left over after these deliveries?
@@ -1571,16 +1578,68 @@ FROM
 GROUP BY
 	payout;
 
--- Results:
+/*
 
 total_revenue|
 -------------+
        94.440|
+       
+*/       
+
+/* 
+ * Pizza Runner
+ * Case Study #2 Questions
+ * Bonus Question
+ *  
+*/ 
+
+-- 1. If Danny wants to expand his range of pizzas - how would this impact the existing data design? Write an INSERT statement to 
+--    demonstrate what would happen if a new Supreme pizza with all the toppings was added to the Pizza Runner menu?
+
+DROP TABLE IF EXISTS temp_pizza_names;
+CREATE TEMP TABLE temp_pizza_names AS (
+	SELECT *
+  	FROM
+  		pizza_runner.pizza_names
+);
+
+INSERT INTO temp_pizza_names
+VALUES
+  (3, 'Supreme');
 
 
+DROP TABLE IF EXISTS temp_pizza_recipes;
+CREATE TABLE temp_pizza_recipes AS (
+	SELECT *
+  	FROM
+  		pizza_runner.pizza_recipes
+);
 
+INSERT INTO temp_pizza_recipes
+VALUES
+  (3, '1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12');
+ 
+SELECT
+	t1.pizza_id,
+	t1.pizza_name,
+	t2.toppings
+FROM 
+	temp_pizza_names AS t1
+JOIN
+	temp_pizza_recipes AS t2
+ON
+	t1.pizza_id = t2.pizza_id;
+	
 
+/*
 
+pizza_id|pizza_name|toppings                             |
+--------+----------+-------------------------------------+
+       1|Meatlovers|1, 2, 3, 4, 5, 6, 8, 10              |
+       2|Vegetarian|4, 6, 7, 9, 11, 12                   |
+       3|Supreme   |1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12|
+
+*/
 
 
 

@@ -1681,3 +1681,56 @@ GROUP BY
 total_revenue|
 -------------|
 94.440|
+
+#### Part E. Bonus Question
+
+**1.**  If Danny wants to expand his range of pizzas - how would this impact the existing data design? Write an INSERT statement to demonstrate what would happen if a new Supreme pizza with all the toppings was added to the Pizza Runner menu?
+
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+DROP TABLE IF EXISTS temp_pizza_names;
+CREATE TEMP TABLE temp_pizza_names AS (
+	SELECT *
+  	FROM
+  		pizza_runner.pizza_names
+);
+
+INSERT INTO temp_pizza_names
+VALUES
+  (3, 'Supreme');
+
+
+DROP TABLE IF EXISTS temp_pizza_recipes;
+CREATE TABLE temp_pizza_recipes AS (
+	SELECT *
+  	FROM
+  		pizza_runner.pizza_recipes
+);
+
+INSERT INTO temp_pizza_recipes
+VALUES
+  (3, '1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12');
+ 
+SELECT
+	t1.pizza_id,
+	t1.pizza_name,
+	t2.toppings
+FROM 
+	temp_pizza_names AS t1
+JOIN
+	temp_pizza_recipes AS t2
+ON
+	t1.pizza_id = t2.pizza_id;
+  ```
+</details>
+
+**Results:**
+
+pizza_id|pizza_name|toppings                             |
+--------|----------|-------------------------------------|
+1|Meatlovers|1, 2, 3, 4, 5, 6, 8, 10              |
+2|Vegetarian|4, 6, 7, 9, 11, 12                   |
+3|Supreme   |1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12|
