@@ -1144,8 +1144,6 @@ CREATE TEMP TABLE ingredients AS (
 	) AS inner_query
 );
 
-SELECT * FROM ingredients;
-
 WITH create_strings AS (
 	SELECT
 		row_id,
