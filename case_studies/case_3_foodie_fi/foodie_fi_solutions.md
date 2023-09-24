@@ -22,10 +22,10 @@ but their plan will continue until the end of the billing period.
 
 #### The orginal table structure.
 
-````sql
+```sql
 SELECT *
-FROM plans;
-````
+FROM foodie_fi.plans;
+```
 
 **Results:**
 
@@ -35,7 +35,7 @@ plan_id|plan_name    |price |
 1|basic monthly|  9.90|
 2|pro monthly  | 19.90|
 3|pro annual   |199.00|
-4|churn        |      |
+4|churn        |[NULL]|
 
 ❗ **Note** ❗
 
@@ -43,24 +43,22 @@ Table 2: **subscriptions**
 
 Customer subscriptions show the exact date where their specific plan_id starts.
 
-If customers downgrade from a pro plan or cancel their subscription - the higher plan will remain in place until 
-the period is over - the start_date in the subscriptions table will reflect the date that the actual plan changes.
+If customers downgrade from a pro plan or cancel their subscription - the higher plan will remain in place until the period is over - the start_date in the subscriptions table will reflect the date that the actual plan changes.
 
 When customers upgrade their account from a basic plan to a pro or annual pro plan - the higher plan will take effect straightaway.
 
-When customers churn - they will keep their access until the end of their current billing period but the start_date will 
-be technically the day they decided to cancel their service.
+When customers churn - they will keep their access until the end of their current billing period but the start_date will be technically the day they decided to cancel their service.
 
 Create a sample of the subscriptions table
 
 
-````sql
+```sql
 SELECT customer_id,
 	plan_id,
 	start_date
 FROM subscriptions
 WHERE customer_id IN (1, 2, 11, 13, 15, 16, 18, 19);
-````
+```
 
 **Results:**
 
@@ -87,7 +85,7 @@ customer_id|plan_id|start_date|
 19|      2|2020-06-29|
 19|      3|2020-08-29|
 
-**A. Customer Journey**
+**Part A. Customer Journey**
 
 Based off the 8 sample customers provided in the sample from the subscriptions table, 
 write a brief description about each customer’s onboarding journey.
@@ -97,28 +95,36 @@ to make your explanations a bit easier!
 
 Create a temp table with the joined tables.
 
-````sql
-DROP TABLE IF EXISTS subs_plans;
-CREATE TEMP TABLE subs_plans AS (
-	SELECT s.customer_id,
-		s.plan_id,
-		p.plan_name,
-		p.price,
-		s.start_date
-	FROM subscriptions AS s
-		JOIN PLANS AS p ON p.plan_id = s.plan_id
+```sql
+DROP TABLE IF EXISTS subscription_plans;
+CREATE TEMP TABLE subscription_plans AS (
+	SELECT
+		t1.customer_id,
+		t1.plan_id,
+		t2.plan_name,
+		t2.price,
+		t1.start_date
+	FROM 
+		subscriptions AS t1
+	JOIN 
+		foodie_fi.plans AS t2
+	ON 
+		t2.plan_id = t1.plan_id
 );
-````
-❗ Join the plans table to show the customers onboarding journey more clearly.
+```
+❗ Join the plans table to show the customers journey clearly. ❗
 
 ````sql
-SELECT customer_id,
+SELECT
+	customer_id,
 	plan_name,
 	start_date
-FROM subs_plans
-WHERE customer_id IN (1, 2, 11, 13, 15, 16, 18, 19)
-ORDER BY customer_id,
-	plan_id ASC;
+FROM 
+	subscription_plans
+WHERE 
+	customer_id IN (1, 2, 11, 13, 15, 16, 18, 19)
+ORDER BY 
+	customer_id, plan_id ASC;
 ````
 
 **Results:**
@@ -146,289 +152,327 @@ customer_id|plan_name    |start_date|
 19|pro monthly  |2020-06-29|
 19|pro annual   |2020-08-29|
 
-* **Client #1**: upgraded to the basic monthly subscription within their 7 day trial period.  
-* **Client #2**: upgraded to the pro annual subscription within their 7 day trial period.      
-* **Client #11**: cancelled their subscription within their 7 day trial period.         
-* **Client #13**: upgraded to the basic monthly subscription within their 7 day trial period and upgraded to pro annual 3 months later.
-* **Client #15**: upgraded to the pro annual subscription within their 7 day trial period and cancelled the following month.        
-* **Client #16**: upgraded to the basic monthly subscription after their 7 day trial period and upgraded to pro annual almost 5 months later.         
-* **Client #18**: upgraded to the pro monthly subscription within their 7 day trial period.        
-* **Client #19**: upgraded to the pro monthly subscription within their 7 day trial period and upgraded to pro annual 2 months later. 
+* Client #1: upgraded to the basic monthly subscription within their 7 day trial period.  
+* Client #2: upgraded to the pro annual subscription within their 7 day trial period.      
+* Client #11: cancelled their subscription within their 7 day trial period.         
+* Client #13: upgraded to the basic monthly subscription within their 7 day trial period and upgraded to pro annual 3 months later.
+* Client #15: upgraded to the pro annual subscription within their 7 day trial period and cancelled the following month.        
+* Client #16: upgraded to the basic monthly subscription after their 7 day trial period and upgraded to pro annual almost 5 months later.         
+* Client #18: upgraded to the pro monthly subscription within their 7 day trial period.        
+* Client #19: upgraded to the pro monthly subscription within their 7 day trial period and upgraded to pro annual 2 months later. 
 
-**B. Data Analysis Questions**
+**Part B. Data Analysis Questions**
 
-#### 1. How many customers has Foodie-Fi ever had?
+**1.**  How many customers has Foodie-Fi ever had?
 
-````sql
-SELECT count(DISTINCT customer_id) AS n_customers
-FROM subs_plans;
-````
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT 
+	COUNT(DISTINCT customer_id) AS total_customers
+FROM 
+	subscription_plans;
+  ```
+</details>
 
 **Results:**
 
-n_customers|
------------|
+total_customers|
+---------------|
 1000|
 
-#### 2. What is the monthly distribution of trial plan start_date values for our dataset - use the start of the month as the group by value
+**2.**  What is the monthly distribution of trial plan start_date values for our dataset - use the start of the month as the group by value.
 
-````sql
-SELECT to_char(start_date, 'Month') AS trial_month,
-	count(*) AS n_trials
-FROM subs_plans
-WHERE plan_id = 0
-GROUP BY trial_month
-ORDER BY to_date(to_char(start_date, 'Month'), 'Month');
-````
+<details>
+  <summary>Click to expand answer!</summary>
 
-**Results:**
-
-trial_month|n_trials|
------------|--------|
-January    |      88|
-February   |      68|
-March      |      94|
-April      |      81|
-May        |      88|
-June       |      79|
-July       |      89|
-August     |      88|
-September  |      87|
-October    |      79|
-November   |      75|
-December   |      84|
-
-#### 3. What plan start_date values occur after the year 2020 for our dataset? Show the breakdown by count of events for each plan_name?
-
-````sql
-SELECT count(plan_name) AS n_plans,
-	plan_name
-FROM subs_plans
-WHERE start_date >= '2020-01-01'
-GROUP BY plan_name;
-````
+  ##### Answer
+  ```sql
+SELECT
+	TO_CHAR(start_date, 'Month') AS trial_month,
+	DATE_TRUNC('month', start_date)::DATE AS start_of_month,
+	COUNT(*) AS n_trials
+FROM 
+	subscription_plans
+WHERE 
+	plan_id = 0
+GROUP BY 
+	trial_month,
+	start_of_month
+ORDER BY 
+	start_of_month;
+  ```
+</details>
 
 **Results:**
 
-n_plans|plan_name    |
--------|-------------|
-258|pro annual   |
-1000|trial        |
-307|churn        |
-539|pro monthly  |
-546|basic monthly|
+trial_month|start_of_month|n_trials|
+-----------|--------------|--------|
+January    |    2020-01-01|      88|
+February   |    2020-02-01|      68|
+March      |    2020-03-01|      94|
+April      |    2020-04-01|      81|
+May        |    2020-05-01|      88|
+June       |    2020-06-01|      79|
+July       |    2020-07-01|      89|
+August     |    2020-08-01|      88|
+September  |    2020-09-01|      87|
+October    |    2020-10-01|      79|
+November   |    2020-11-01|      75|
+December   |    2020-12-01|      84|
+
+**3.**  What plan start_date values occur after the year 2020 for our dataset? Show the breakdown by count of events for each plan_name?
+
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT
+	t1.plan_id,
+	t1.plan_name,
+	COUNT(*) AS plan_events
+FROM 
+	subscription_plans AS t1
+WHERE 
+	start_date >= '2021-01-01'
+GROUP BY 
+	t1.plan_id,
+	t1.plan_name
+ORDER BY
+	t1.plan_id;
+  ```
+</details>
+
+**Results:**
+
+plan_id|plan_name    |plan_events|
+-------|-------------|-----------|
+1|basic monthly|          8|
+2|pro monthly  |         60|
+3|pro annual   |         63|
+4|churn        |         71|
 
 
-#### 4. What is the customer count and percentage of customers who have churned rounded to 1 decimal place?
+**4.**  What is the customer count and percentage of customers who have churned rounded to 1 decimal place?
 
-1. Count only completed orders.
+<details>
+  <summary>Click to expand answer!</summary>
 
-````sql
+  ##### Answer
+  ```sql
 DROP TABLE IF EXISTS churn_count;
 CREATE TEMP TABLE churn_count AS (
-	SELECT count(DISTINCT customer_id) AS n_churn
-	FROM subs_plans
-	WHERE plan_name = 'churn'
+	SELECT
+		COUNT(DISTINCT customer_id) AS n_churn
+	FROM 
+		subscription_plans
+	WHERE 
+		plan_name = 'churn'
 );
-DROP TABLE IF EXISTS cust_count;
+
+DROP TABLE IF EXISTS cust_count; 
 CREATE TEMP TABLE cust_count AS (
-	SELECT count(DISTINCT customer_id) AS n_customers
-	FROM subs_plans
+	SELECT
+		COUNT(DISTINCT customer_id) AS n_customers
+	FROM 
+		subscription_plans
 );
-SELECT n_customers,
+ 
+SELECT
+	n_customers,
 	n_churn,
-	round((n_churn::numeric / n_customers::numeric) * 100, 1) AS churn_perc
-FROM cust_count,
-	churn_count;
-````
+	ROUND((n_churn::NUMERIC / n_customers) * 100, 1) AS churn_percentage
+FROM 
+	cust_count, churn_count;
+  ```
+</details>
 
 **Results:**
 
-n_customers|n_churn|churn_perc|
------------|-------|----------|
-1000|    307|      30.7|
+n_customers|n_churn|churn_percentage|
+-----------|-------|----------------|
+1000|    307|            30.7|
 
-#### 5. How many customers have churned straight after their initial free trial - what percentage is this rounded to the nearest whole number?
+**5.**  How many customers have churned straight after their initial free trial - what percentage is this rounded to the nearest whole number?
 
-1. Join the pizza_names table to customer_orders to count pizza types.
-2. Join runner_order to count number of completed deliveries.
-3. Filter out any cancelled orders.
+<details>
+  <summary>Click to expand answer!</summary>
 
-````sql
+  ##### Answer
+  ```sql
 DROP TABLE IF EXISTS trial_only;
 CREATE TEMP table trial_only AS (
-	WITH set_row_number as (
-		SELECT DISTINCT customer_id,
+	WITH set_row_number AS (
+		SELECT
+			DISTINCT customer_id,
 			plan_name,
 			plan_id,
-			row_number() OVER (
-				PARTITION BY customer_id
-				ORDER BY plan_id
-			) AS rn
-		FROM subs_plans
-		ORDER BY customer_id,
-			plan_id
+			ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY plan_id) AS rn
+		FROM 
+			subscription_plans
+		ORDER BY 
+			customer_id, plan_id
 	),
 	get_row_number AS (
-		SELECT rn,
+		SELECT
+			rn,
 			plan_name
-		from set_row_number
-		WHERE rn < 3
+		FROM
+			set_row_number
+		WHERE 
+			rn < 3
 	)
-	SELECT sum(
+	SELECT
+		SUM(
 			CASE
-				WHEN rn = 2
-				AND plan_name = 'churn' THEN 1
+				WHEN rn = 2 AND plan_name = 'churn' THEN 1
 				ELSE 0
-			end
+			END
 		) AS trial_users_only
-	from get_row_number
+	FROM
+		get_row_number
 );
-SELECT n_customers,
+       
+SELECT
+	n_customers,
 	trial_users_only,
-	round(
-		(
-			trial_users_only::numeric / n_customers::numeric * 100
-		),
-		1
-	) AS trial_churn_perc
-FROM trial_only,
-	cust_count;
-````
-
-**Results:** : Percentage from total customers
-
-n_customers|trial_users_only|trial_churn_perc|
------------|----------------|----------------|
-1000|              92|             9.2|
-
-````sql
-SELECT n_churn,
-	trial_users_only,
-	round(
-		(trial_users_only::numeric / n_churn::numeric * 100),
-		1
-	) AS trial_churn_perc
-FROM trial_only,
-	churn_count;
-````
-
-**Results:** : Percentage from total number of churn
-
-n_churn|trial_users_only|trial_churn_perc|
--------|----------------|----------------|
-307|              92|            30.0|
-
-#### 6. What is the number and percentage of customer plans after their initial free trial?
-
-````sql
-SELECT plan_name,
-	count(plan_name) AS plan_count,
-	round(
-		(count(plan_name)::numeric / n_customers::numeric) * 100,
-		2
-	) AS plan_perc
-from (
-		SELECT DISTINCT customer_id,
-			plan_name,
-			plan_id,
-			row_number() OVER (
-				PARTITION BY customer_id
-				ORDER BY plan_id
-			) AS rn
-		FROM subs_plans
-		ORDER BY customer_id,
-			plan_id
-	) AS a,
-	cust_count
-WHERE rn = 2
-GROUP BY plan_name,
-	n_customers;
-````
+	ROUND((trial_users_only::NUMERIC / n_customers *100), 1) AS trial_churn_percentage
+FROM 
+	trial_only, cust_count;
+  ```
+</details>
 
 **Results:**
 
-plan_name    |plan_count|plan_perc|
--------------|----------|---------|
-pro annual   |        37|     3.70|
-pro monthly  |       325|    32.50|
-basic monthly|       546|    54.60|
-churn        |        92|     9.20|
+n_customers|trial_users_only|trial_churn_percentage|
+-----------|----------------|----------------------|
+1000|              92|                   9.2|
 
-#### 7. What is the customer count and percentage breakdown of all 5 plan_name values at 2020-12-31? 
 
-````sql
-SELECT count(customer_id) AS customer_count,
+**6.**  What is the number and percentage of customer plans after their initial free trial?
+
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH get_row_number AS (
+	SELECT
+		DISTINCT customer_id,
+		plan_name,
+		plan_id,
+		ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY plan_id) AS rn
+	FROM subscription_plans
+	ORDER BY 
+		customer_id, plan_id
+)
+SELECT
 	plan_name,
+	COUNT(plan_name) AS plan_count,
+	ROUND((COUNT(plan_name)::NUMERIC / n_customers) *100) AS plan_percentage
+FROM
+	get_row_number, cust_count
+WHERE 
+	rn = 2
+GROUP BY 
+	plan_name,
+	n_customers;
+  ```
+</details>
+
+**Results:**
+
+plan_name    |plan_count|plan_percentage|
+-------------|----------|---------------|
+pro annual   |        37|              4|
+pro monthly  |       325|             33|
+basic monthly|       546|             55|
+churn        |        92|              9|
+
+**7.**  What is the customer count and percentage breakdown of all 5 plan_name values at 2020-12-31?
+
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH get_row_number AS (
+	SELECT
+		DISTINCT customer_id,
+		plan_name,
+		plan_id,
+		start_date,
+		ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY plan_id desc) AS rn
+	FROM 
+		subscription_plans
+	WHERE 
+		start_date <= '2020-12-31'
+	-- Must add this condition to capture trial period
+	OR 
+		start_date BETWEEN '2020-12-25' AND '2020-12-31'
+	GROUP BY 
+		customer_id,
+		plan_name,
+		plan_id,
+		start_date
+)
+SELECT 
 	plan_id,
-	round(
-		(count(plan_name)::numeric / n_customers::numeric) * 100,
-		2
-	) AS plan_perc
-from (
-		SELECT DISTINCT customer_id,
-			plan_name,
-			plan_id,
-			start_date,
-			row_number() OVER (
-				PARTITION BY customer_id
-				ORDER BY plan_id desc
-			) AS rn
-		FROM subs_plans
-		WHERE start_date <= '2020-12-31' -- Must add this condition to capture trial period
-			OR start_date BETWEEN '2020-12-25' AND '2020-12-31'
-		GROUP BY customer_id,
-			plan_name,
-			plan_id,
-			start_date
-	) AS tmp,
-	cust_count
+	plan_name,
+	COUNT(customer_id) AS customer_count,
+	ROUND((COUNT(plan_name)::NUMERIC / n_customers) * 100, 2) AS plan_percentage
+FROM
+	get_row_number, cust_count
 WHERE rn = 1
-GROUP BY n_customers,
+GROUP BY
+	n_customers,
 	plan_name,
 	plan_id
-ORDER BY plan_id;
-````
+ORDER BY 
+	plan_id;
+  ```
+</details>
 
 **Results:**
 
-customer_count|plan_name    |plan_id|plan_perc|
---------------|-------------|-------|---------|
-19|trial        |      0|     1.90|
-224|basic monthly|      1|    22.40|
-326|pro monthly  |      2|    32.60|
-195|pro annual   |      3|    19.50|
-236|churn        |      4|    23.60|
+plan_id|plan_name    |customer_count|plan_percentage|
+-------|-------------|--------------|---------------|
+0|trial        |            19|           1.90|
+1|basic monthly|           224|          22.40|
+2|pro monthly  |           326|          32.60|
+3|pro annual   |           195|          19.50|
+4|churn        |           236|          23.60|
 
-#### 8. How many customers have upgraded to an annual plan in 2020?
+**8.**  How many customers have upgraded to an annual plan in 2020?
 
-````sql
-SELECT count(customer_id) AS customer_count
-from (
-		SELECT customer_id,
-			plan_id,
-			row_number() OVER (
-				PARTITION BY customer_id
-				ORDER BY plan_id
-			) AS rn
-		FROM subs_plans
-		WHERE extract(
-				YEAR
-				FROM start_date
-			) = '2020'
-	) AS tmp
-WHERE rn != 1
-	AND plan_id = 3;
-````
+<details>
+  <summary>Click to expand answer!</summary>
 
-❗  **Or** ❗
-
-````sql
-SELECT count(customer_id) AS customer_count
-FROM subs_plans
-WHERE start_date <= '2020-12-31'
-	AND plan_id = 3;
-````
+  ##### Answer
+  ```sql
+WITH get_row_number AS (
+	SELECT
+		customer_id,
+		plan_id,
+		ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY plan_id) AS rn
+	FROM
+		subscription_plans
+	WHERE 
+		extract(YEAR FROM start_date) = '2020'
+)
+SELECT
+	COUNT(customer_id) AS customer_count
+FROM
+	get_row_number 
+WHERE 
+	rn != 1
+AND 
+	plan_id = 3;
+  ```
+</details>
 
 **Results:**
 
@@ -436,62 +480,123 @@ customer_count|
 --------------|
 195|
 
-#### 9. How many days on average does it take for a customer to an annual plan from the day they join Foodie-Fi?
+**or**
 
-````sql
-DROP TABLE IF EXISTS get_join_date;
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT 
+	COUNT(customer_id) AS customer_count
+FROM 
+	subscription_plans
+WHERE 
+	start_date <= '2020-12-31'
+AND
+	plan_id = 3;
+  ```
+</details>
+
+**Results:**
+
+customer_count|
+--------------|
+195|
+
+**9.**  How many days on average does it take for a customer to an annual plan from the day they join Foodie-Fi?
+
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+DROP TABLE IF EXISTS get_join_date;      
 CREATE TEMP TABLE get_join_date AS (
-	SELECT DISTINCT customer_id,
-		min(start_date) AS join_date
-	FROM subs_plans
-	GROUP BY customer_id
-	ORDER BY customer_id
+	SELECT
+		DISTINCT customer_id,
+		MIN(start_date) AS join_date
+	FROM 
+		subscription_plans
+	GROUP BY 
+		customer_id
+	ORDER BY 
+		customer_id
 );
+
 DROP TABLE IF EXISTS get_aplan_date;
 CREATE TEMP TABLE get_aplan_date AS (
-	SELECT DISTINCT customer_id,
-		max(start_date) AS aplan_date
-	FROM subs_plans
-	WHERE plan_id = 3
-	GROUP BY customer_id
-	ORDER BY customer_id
+	SELECT
+		DISTINCT customer_id,
+		MAX(start_date) AS aplan_date
+	FROM 
+		subscription_plans
+	WHERE 
+		plan_id = 3
+	GROUP BY 
+		customer_id
+	ORDER BY 
+		customer_id
 );
-SELECT round(avg(ad.aplan_date - jd.join_date), 2) AS avg_days
-FROM get_join_date AS jd
-	JOIN get_aplan_date AS ad ON jd.customer_id = ad.customer_id;
-````
+
+SELECT
+	ROUND(AVG(t2.aplan_date - t1.join_date)) AS avg_days
+FROM 
+	get_join_date AS t1
+JOIN 
+	get_aplan_date AS t2
+ON 
+	t1.customer_id = t2.customer_id;
+  ```
+</details>
 
 **Results:**
 
 avg_days|
 --------|
-104.62|
+105|
 
-#### 10. Can you further breakdown this average value into 30 day periods (i.e. 0-30 days, 31-60 days etc)
+**10.**  Can you further breakdown this average value into 30 day periods (i.e. 0-30 days, 31-60 days etc)
 
-````sql
-SELECT CASE
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH get_date_periods AS (
+	SELECT
+		t1.customer_id,
+		t2.aplan_date,
+		t1.join_date,
+		-- divide the date difference by the period length (30 days)
+		-- and add 1 to have a whole number with the first period
+		((t2.aplan_date - t1.join_date) / 30 | 1) AS date_periods
+	FROM 
+		get_join_date AS t1
+	JOIN
+		get_aplan_date AS t2
+	ON
+		t1.customer_id = t2.customer_id
+)
+SELECT
+	CASE
 		-- subtract whole number after the condition and concatenate time period
 		-- This will create the first row (0-30 days)
-		WHEN date_periods = 1 THEN (date_periods - 1) || ' - ' || (date_periods * 30) || ' days' -- This condition will create all other rows by multiplying the whole num by the period
+		WHEN date_periods = 1 THEN (date_periods - 1) || ' - ' || (date_periods * 30) || ' days'
+		-- This condition will create all other rows by multiplying the whole num by the period
 		-- (after subtracting the original whole number) We add 1 so as to have (31-60 days)
 		ELSE ((date_periods - 1) * 30 | 1) || ' - ' || (date_periods * 30) || ' days'
 	END AS time_period,
-	count(customer_id) AS customer_count,
-	round(avg(aplan_date - join_date), 2) AS avg_days
-FROM (
-		SELECT jd.customer_id,
-			ad.aplan_date,
-			jd.join_date,
-			-- divide the date difference by the period length (30 days)
-			-- and add 1 to have a whole number with the first period
-			((ad.aplan_date - jd.join_date) / 30 | 1) AS date_periods
-		FROM get_join_date AS jd
-			JOIN get_aplan_date AS ad ON jd.customer_id = ad.customer_id
-	) AS tmp
-GROUP BY date_periods
-ORDER BY date_periods
-````
+	COUNT(customer_id) AS customer_count,
+	ROUND(AVG(aplan_date - join_date), 2) AS avg_days
+FROM
+	get_date_periods
+GROUP BY 
+	date_periods
+ORDER BY 
+	date_periods;
+  ```
+</details>
 
 **Results:**
 
@@ -510,34 +615,41 @@ time_period   |customer_count|avg_days|
 301 - 330 days|             1|  327.00|
 331 - 360 days|             1|  346.00|
 
-#### 11. How many customers downgraded from a pro monthly to a basic monthly plan in 2020?
+**11.**  How many customers downgraded from a pro monthly to a basic monthly plan in 2020?
 
-````sql
-SELECT count(customer_id) AS cust_downgrade_count
-from (
-		SELECT customer_id,
-			plan_name,
-			lead(plan_name) OVER (
-				PARTITION BY customer_id
-				ORDER BY start_date
-			) AS downgrade
-		FROM subs_plans
-		WHERE extract(
-				YEAR
-				FROM start_date
-			) = '2020'
-	) AS tmp
-WHERE plan_name = 'pro monthly'
-	AND downgrade = 'basic monthly';
-````
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH get_downgrades AS (
+	SELECT
+		customer_id,
+		plan_name,
+		LAG(plan_name) OVER (PARTITION BY customer_id ORDER BY start_date) AS downgrade
+	FROM
+		subscription_plans
+	WHERE 
+		EXTRACT('year' FROM start_date) = 2020
+)
+SELECT
+	COUNT(customer_id) AS customer_downgrade_count
+FROM
+	get_downgrades
+WHERE 
+	plan_name = 'pro monthly'
+AND 
+	downgrade = 'basic monthly';
+  ```
+</details>
 
 **Results:**
 
-cust_downgrade_count|
---------------------|
-0|
+customer_downgrade_count|
+------------------------|
+163|
 
-###Challenge Payment Question
+**Part C. Challenge Payment Question**
 
 The Foodie-Fi team wants you to create a new payments table for the year 2020 that includes amounts paid by each customer in the 
 subscriptions table with the following requirements:
@@ -551,7 +663,8 @@ subscriptions table with the following requirements:
 ````sql
 DROP TABLE IF EXISTS customer_payments;
 CREATE TEMP TABLE customer_payments AS (
-	SELECT customer_id,
+	SELECT
+		customer_id,
 		plan_id,
 		plan_name,
 		start_date,
@@ -561,90 +674,71 @@ CREATE TEMP TABLE customer_payments AS (
 			WHEN plan_id = 3 THEN 199.00
 			ELSE 0
 		END AS amount,
-		lead(plan_name) OVER (
-			PARTITION BY customer_id
-			ORDER BY start_date
-		) AS next_plan
-	FROM subs_plans
-	WHERE plan_id <> 0
-		AND start_date BETWEEN '2020-01-01' AND '2020-12-31'
+		LEAD(plan_name) OVER (PARTITION BY customer_id ORDER BY start_date) AS next_plan
+	FROM 
+		subscription_plans
+	WHERE 
+		plan_id != 0
+	AND 
+		start_date BETWEEN '2020-01-01' AND '2020-12-31'
 );
-SELECT customer_id,
+
+
+SELECT
+	customer_id,
 	plan_id,
 	plan_name,
 	payment_date,
 	CASE
-		WHEN rn1 > rn2 -- If a customer upgrades
-		AND lag(plan_id) OVER (
-			PARTITION BY customer_id
-			ORDER BY payment_date
-		) < plan_id -- Make sure upgrades are within the same month or no discounted payment
-		AND EXTRACT(
-			MONTH
-			FROM lag(payment_date) OVER (
-					PARTITION BY customer_id
-					ORDER BY payment_date
-				)
-		) = extract(
-			MONTH
-			FROM payment_date
-		) -- Discount the current months payment from first month payment after upgrade
-		THEN amount - lag(amount) OVER (
-			PARTITION BY customer_id
-			ORDER BY payment_date
-		)
+		WHEN rn1 > rn2
+			-- If a customer upgrades
+			AND LAG(plan_id) OVER (PARTITION BY customer_id ORDER BY payment_date) < plan_id
+			-- Make sure upgrades are within the same month or no discounted payment
+			AND EXTRACT(MONTH FROM LAG(payment_date) OVER (PARTITION BY customer_id ORDER BY payment_date)) = EXTRACT('month' FROM payment_date)
+		-- Discount the current months payment from first month payment after upgrade
+		THEN amount - LAG(amount) OVER (PARTITION BY customer_id ORDER BY payment_date)
 		ELSE amount
 	END AS amount,
-	row_number() OVER (PARTITION BY customer_id) AS payment_ord
-from (
-		SELECT customer_id,
+	ROW_NUMBER() OVER (PARTITION BY customer_id) AS payment_ord
+FROM
+	(SELECT
+		customer_id,
+		plan_id,
+		plan_name,
+		GENERATE_SERIES(start_date, end_date, '1 month')::DATE AS payment_date,
+		amount,
+		ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY start_date) AS rn1,
+		ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY start_date DESC) AS rn2
+	from
+		(SELECT
+			customer_id,
 			plan_id,
 			plan_name,
-			generate_series(start_date, end_date, '1 month')::date AS payment_date,
 			amount,
-			row_number() OVER (
-				PARTITION BY customer_id
-				ORDER BY start_date
-			) AS rn1,
-			row_number() OVER (
-				PARTITION BY customer_id
-				ORDER BY start_date desc
-			) AS rn2
-		from (
-				SELECT customer_id,
-					plan_id,
-					plan_name,
-					amount,
-					start_date,
-					CASE
-						-- Customer pays monthly amount
-						WHEN next_plan IS NULL
-						AND plan_id != 3 THEN '2020-12-31' -- If customer upgrades from pro monthly to pro annual, pro monthly price ends the month before
-						WHEN plan_id = 2
-						AND next_plan = 'pro annual' THEN (
-							lead(start_date) OVER (
-								PARTITION BY customer_id
-								ORDER BY start_date
-							) - interval '1 month'
-						) -- If customer churns or upgrade plans, change the start_date
-						WHEN next_plan = 'churn'
-						OR next_plan = 'pro monthly'
-						OR next_plan = 'pro annual' THEN lead(start_date) OVER (
-							PARTITION BY customer_id
-							ORDER BY start_date
-						) -- If customer upgrades to pro annual after trial
-						WHEN plan_id = 3 THEN start_date
-					END AS end_date,
-					next_plan
-				FROM customer_payments
-			) AS tmp1
-		WHERE plan_id != 4
-	) AS tmp2 -- We will display a sample of the data to show that is works
-WHERE customer_id IN (1, 2, 13, 15, 16, 18, 19)
+			start_date,
+			CASE
+				-- Customer pays monthly amount
+				WHEN next_plan IS NULL AND plan_id != 3 THEN '2020-12-31'
+				-- If customer upgrades from pro monthly to pro annual, pro monthly price ends the month before
+				WHEN plan_id = 2 AND next_plan = 'pro annual' THEN (LEAD(start_date) OVER (PARTITION BY customer_id ORDER BY start_date) - INTERVAL '1 month')
+				-- If customer churns or upgrade plans, change the start_date
+				WHEN next_plan = 'churn' OR next_plan = 'pro monthly' OR next_plan = 'pro annual' THEN LEAD(start_date) OVER (PARTITION BY customer_id ORDER BY start_date)
+				-- If customer upgrades to pro annual after trial
+				WHEN plan_id = 3 THEN start_date
+			END AS end_date,
+			next_plan
+		FROM customer_payments) AS tmp1
+	WHERE 
+		plan_id != 4) AS tmp2
+-- We will display a sample of the data to show that is works correctly
+WHERE
+	customer_id IN (1, 2, 13, 15, 16, 18, 19)
 ORDER BY customer_id;
 ````
 
 **Results:**
+
+❗ Only displaying a sample size of the data to show that it works as expected. ❗
 
 customer_id|plan_id|plan_name    |payment_date|amount|payment_ord|
 -----------|-------|-------------|------------|------|-----------|
