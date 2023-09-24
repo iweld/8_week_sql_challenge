@@ -1359,7 +1359,7 @@ SELECT
 			WHEN pizza_id = 1 THEN 12
 			WHEN pizza_id = 2 THEN 10
 		END
-	) AS pizza_revenue
+	) AS pizza_revenue_after_cancellation
 FROM 
 	clean_customer_orders AS t1
 JOIN 
@@ -1371,57 +1371,67 @@ WHERE
     
 -- Results
 
-pizza_revenue|
--------------+
-          160|          
+pizza_revenue_after_cancellation|
+--------------------------------+
+                             138|          
          
 -- 2. What if there was an additional $1 charge for any pizza extras?
 
-DROP TABLE IF EXISTS get_extras_cost;
-CREATE TEMP TABLE get_extras_cost AS (
+DROP TABLE IF EXISTS get_extras_count;
+CREATE TEMP TABLE get_extras_count AS (
+	WITH single_toppings AS (
+		SELECT 
+			order_id,
+			UNNEST(STRING_TO_ARRAY(extras, ',')) AS each_extra
+		FROM 
+			clean_customer_orders
+	)
 	SELECT order_id,
-		count(each_extra) AS total_extras
-	from (
-			SELECT order_id,
-				UNNEST(string_to_array(extras, ',')) AS each_extra
-			FROM clean_customer_orders
-		) AS tmp
-	GROUP BY order_id
+		COUNT(each_extra) AS total_extras
+	FROM 
+		single_toppings
+	GROUP BY 
+		order_id
 );
-with calculate_totals as (
-	SELECT 
-		c.order_id,
-		c.pizza_id,
+
+WITH calculate_totals AS (
+	SELECT
+		t1.order_id,
+		t1.pizza_id,
 		SUM(
 			CASE
 				WHEN pizza_id = 1 THEN 12
-				ELSE 0
-			END
-		) AS total_meatlovers,
-		SUM(
-			CASE
 				WHEN pizza_id = 2 THEN 10
-				ELSE 0
 			END
-		) AS total_veggie,
-		gec.total_extras
-	FROM clean_customer_orders AS c
-	JOIN clean_runner_orders AS r ON r.order_id = c.order_id
-	LEFT JOIN get_extras_cost AS gec ON gec.order_id = c.order_id
-	WHERE r.cancellation IS NULL
-	GROUP BY c.order_id,
-		c.pizza_id,
-		c.extras,
-		gec.total_extras
+		) AS total_price,
+		t3.total_extras
+	FROM 
+		clean_customer_orders AS t1
+	JOIN
+		clean_runner_orders AS t2 
+	ON
+		t2.order_id = t1.order_id
+	LEFT JOIN
+		get_extras_count AS t3
+	ON
+		t3.order_id = t1.order_id
+	WHERE
+		t2.cancellation IS NULL
+	GROUP BY 
+		t1.order_id,
+		t1.pizza_id,
+		t3.total_extras
 )
-SELECT SUM(total_meatlovers) + SUM(total_veggie) + SUM(total_extras) AS total_income
-FROM calculate_totals;
+SELECT 
+	SUM(total_price) + SUM(total_extras) AS total_income
+FROM 
+	calculate_totals;
     
 -- Results   
 
 total_income|
 ------------+
-         144|
+         142|
          
 -- 3. The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would 
 -- you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for 

@@ -1462,23 +1462,63 @@ pizza_revenue_after_cancellation|
 
   ##### Answer
   ```sql
-SELECT
-	SUM(
-		CASE
-			WHEN pizza_id = 1 THEN 12
-			WHEN pizza_id = 2 THEN 10
-		END
-	) AS pizza_revenue_before_cancellation
+DROP TABLE IF EXISTS get_extras_count;
+CREATE TEMP TABLE get_extras_count AS (
+	WITH single_toppings AS (
+		SELECT 
+			order_id,
+			UNNEST(STRING_TO_ARRAY(extras, ',')) AS each_extra
+		FROM 
+			clean_customer_orders
+	)
+	SELECT order_id,
+		COUNT(each_extra) AS total_extras
+	FROM 
+		single_toppings
+	GROUP BY 
+		order_id
+);
+
+WITH calculate_totals AS (
+	SELECT
+		t1.order_id,
+		t1.pizza_id,
+		SUM(
+			CASE
+				WHEN pizza_id = 1 THEN 12
+				WHEN pizza_id = 2 THEN 10
+			END
+		) AS total_price,
+		t3.total_extras
+	FROM 
+		clean_customer_orders AS t1
+	JOIN
+		clean_runner_orders AS t2 
+	ON
+		t2.order_id = t1.order_id
+	LEFT JOIN
+		get_extras_count AS t3
+	ON
+		t3.order_id = t1.order_id
+	WHERE
+		t2.cancellation IS NULL
+	GROUP BY 
+		t1.order_id,
+		t1.pizza_id,
+		t3.total_extras
+)
+SELECT 
+	SUM(total_price) | SUM(total_extras) AS total_income
 FROM 
-	clean_customer_orders;
+	calculate_totals;
   ```
 </details>
 
 **Results:**
 
-pizza_revenue_before_cancellation|
----------------------------------|
-160|
+total_income|
+------------|
+142|
 
 
 #### 3. The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would  you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for  each successful customer order between 1 to 5.
