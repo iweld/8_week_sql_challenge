@@ -477,12 +477,12 @@ WITH runner_signups AS (
 		-- Subtract the registration date from the start of the week
 		-- Use modulo to get remainder from dividing result by 7
 		-- Subtract remainder result from registration date to get start of the week
-		registration_date - ((registration_date - '2021-01-01') % 7) AS starting_week,
+		registration_date - ((registration_date - '2021-01-01') % 7) AS starting_week
 		-- We can also use to DATE_TRUNC to roll back the start of the week
 		-- DATE_TRUNC rolls back to the previous Monday
 		-- 2021-01-01 is a Friday. We must as 4 days to initialize a custom start date
 		-- DATE_TRUNC('week', registration_date)::DATE + 4 AS starting_week
-	FROM runners
+	FROM pizza_runner.runners
 )
 SELECT
 	starting_week,
@@ -778,12 +778,15 @@ runner_id|delivered_pizzas|total_orders|percentage_delivered|
 DROP TABLE IF EXISTS recipe_toppings;
 CREATE TEMP TABLE recipe_toppings AS (
 	SELECT
-		pn.pizza_id,
-		pn.pizza_name,
-		UNNEST(string_to_array(pr.toppings, ','))::numeric AS each_topping
-	FROM pizza_names AS pn
-	JOIN pizza_recipes AS pr
-	ON pn.pizza_id = pr.pizza_id
+		t1.pizza_id,
+		t1.pizza_name,
+		UNNEST(STRING_TO_ARRAY(t2.toppings, ','))::NUMERIC AS single_topping
+	FROM 
+		pizza_names AS t1
+	JOIN 
+		pizza_recipes AS t2
+	ON 
+		t1.pizza_id = t2.pizza_id
 );
 
 -- 1. What are the standard ingredients for each pizza?
@@ -791,14 +794,18 @@ CREATE TEMP TABLE recipe_toppings AS (
 -- Table of all toppings
 
 SELECT
-	rt.pizza_name,
-	pt.topping_name
-FROM recipe_toppings AS rt
-JOIN pizza_toppings AS pt
-ON rt.each_topping = pt.topping_id
-ORDER BY rt.pizza_name;
+	t1.pizza_name,
+	t2.topping_name
+FROM 
+	recipe_toppings AS t1
+JOIN
+	pizza_toppings AS t2
+ON
+	t1.single_topping = t2.topping_id
+ORDER BY
+	t1.pizza_name;
 
--- Result:
+/*
 
 pizza_name|topping_name|
 ----------+------------+
@@ -817,87 +824,129 @@ Vegetarian|Onions      |
 Vegetarian|Peppers     |
 Vegetarian|Tomatoes    |
 
+*/
+
 -- Or Flattened list of all toppings per pizza
 
 WITH pizza_toppings_recipe AS (
 	SELECT
-		rt.pizza_name,
-		pt.topping_name
-	FROM recipe_toppings AS rt
-	JOIN pizza_toppings AS pt
-	ON rt.each_topping = pt.topping_id
-	ORDER BY rt.pizza_name
+		t1.pizza_name,
+		t2.topping_name
+	FROM 
+		recipe_toppings AS t1
+	JOIN
+		pizza_toppings AS t2
+	ON
+		t1.single_topping = t2.topping_id
+	ORDER BY
+		t1.pizza_name
 )
 SELECT
 	pizza_name,
-	string_agg(topping_name, ', ') AS all_toppings
+	STRING_AGG(topping_name, ', ') AS toppings_per_pizza
 FROM
 	pizza_toppings_recipe
 GROUP BY
 	pizza_name;
 
--- Result:
+/*
 
-pizza_name|all_toppings                                                         |
+pizza_name|toppings_per_pizza                                                   |
 ----------+---------------------------------------------------------------------+
 Meatlovers|BBQ Sauce, Pepperoni, Cheese, Salami, Chicken, Bacon, Mushrooms, Beef|
 Vegetarian|Tomato Sauce, Cheese, Mushrooms, Onions, Peppers, Tomatoes           |
 
+*/
+
 -- 2. What was the most commonly added extra?
 
-WITH get_extras AS (
+DROP TABLE IF EXISTS get_extras;
+CREATE TEMP TABLE get_extras AS (
 	SELECT
-		trim(UNNEST(string_to_array(extras, ',')))::numeric AS extras
-	FROM clean_customer_orders
-	GROUP BY extras
-),
-most_common_extra AS (
+		ROW_NUMBER() OVER () AS row_id,
+		order_id,
+		TRIM(UNNEST(STRING_TO_ARRAY(extras, ',')))::NUMERIC AS extras,
+		count(*) AS e_count
+	FROM 
+		clean_customer_orders
+	WHERE
+		extras IS NOT NULL
+	GROUP BY 
+		order_id,
+		extras
+);
+
+WITH most_common_extra AS (
 	SELECT
 		extras,
-		RANK() OVER (ORDER BY count(extras) desc) AS rnk_extras
-	from
+		SUM(e_count) AS total_extras
+	FROM
 		get_extras
-	GROUP BY extras
+	GROUP BY
+		extras
 )
 SELECT
-	topping_name
-FROM pizza_toppings
-WHERE topping_id = (SELECT extras FROM most_common_extra WHERE rnk_extras = 1);
+	t1.topping_name AS most_common_topping
+FROM 
+	pizza_toppings AS t1
+JOIN 
+	most_common_extra AS t2
+ON 
+	t2.extras = t1.topping_id
+ORDER BY
+	total_extras DESC
+LIMIT 1;
 
--- Result:
+/*
 
-topping_name|
-------------+
-Bacon       |
+most_common_topping|
+-------------------+
+Bacon              |
+
+*/
 
 -- 3. What was the most common exclusion?
 
-WITH get_exclusions AS (
+DROP TABLE IF EXISTS get_exclusions;
+CREATE TEMP TABLE get_exclusions AS (
 	SELECT
-		trim(UNNEST(string_to_array(exclusions, ',')))::numeric AS exclusions
-	FROM clean_customer_orders
-	GROUP BY exclusions
-),
-most_common_exclusion AS (
+		order_id,
+		TRIM(UNNEST(STRING_TO_ARRAY(exclusions, ',')))::NUMERIC AS exclusions,
+		count(*) AS e_count
+	FROM 
+		clean_customer_orders
+	WHERE
+		exclusions IS NOT NULL
+	GROUP BY 
+		order_id,
+		exclusions
+);
+
+WITH most_common_exclusion AS (
 	SELECT
 		exclusions,
-		RANK() OVER (ORDER BY count(exclusions) desc) AS rnk_exclusions
-	from
+		SUM(e_count) AS total_exclusions
+	FROM
 		get_exclusions
-	GROUP BY exclusions
+	GROUP BY
+		exclusions
 )
 SELECT
-	topping_name
-FROM pizza_toppings
-WHERE topping_id in (SELECT exclusions FROM most_common_exclusion WHERE rnk_exclusions = 1);
+	t1.topping_name AS most_excluded_topping
+FROM pizza_toppings AS t1
+JOIN most_common_exclusion AS t2
+ON t2.exclusions = t1.topping_id
+ORDER BY
+	total_exclusions DESC
+LIMIT 1;
 
--- Result
+/*
 
-topping_name|
-------------+
-BBQ Sauce   |
-Cheese      |
-Mushrooms   |
+most_excluded_topping|
+---------------------+
+Cheese               |
+
+*/
 
 -- 4. Generate an order item for each record in the customers_orders table in the format of one of the following:
 -- Meat Lovers
@@ -905,121 +954,137 @@ Mushrooms   |
 -- Meat Lovers - Extra Bacon
 -- Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers
 
+-- This query uses the 'get_exclusions' and 'get_extras' temp tables from the previous questions.
+
 DROP TABLE IF EXISTS id_customer_orders;
 CREATE TEMP TABLE id_customer_orders AS (
 	SELECT
-		row_number() OVER (ORDER BY order_id) AS row_id,
+		ROW_NUMBER() OVER (ORDER BY order_id) AS row_id,
 		order_id,
 		customer_id,
 		pizza_id,
 		exclusions,
 		extras,
 		order_time
-FROM
-	clean_customer_orders
-);
-
-DROP TABLE IF EXISTS get_exclusions;
-CREATE TEMP TABLE get_exclusions AS (
-	SELECT
-		row_id,
-		order_id,
-		trim(UNNEST(string_to_array(exclusions, ',')))::NUMERIC AS single_exclusions
-	FROM id_customer_orders
-	GROUP BY row_id, order_id, exclusions
-);
-
-DROP TABLE IF EXISTS get_extras;
-CREATE TEMP TABLE get_extras AS (
-	SELECT
-		row_id,
-		order_id,
-		trim(UNNEST(string_to_array(extras, ',')))::numeric AS single_extras
-	FROM id_customer_orders
-	GROUP BY row_id, order_id, extras
+	FROM
+		clean_customer_orders
 );
 
 WITH get_exlusions_and_extras AS (
 	SELECT
-		c.row_id,
-		c.order_id,
-		pn.pizza_name,
+		t2.row_id,
+		t2.order_id,
+		t2.customer_id,
+		t2.order_time,
+		t1.pizza_name,
 		CASE
-			WHEN c.exclusions IS NULL AND c.extras IS NULL THEN NULL
+			WHEN t2.exclusions IS NULL AND t2.extras IS NULL THEN NULL
 			ELSE 
-				(SELECT
-					string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exc.single_exclusions), ', ')
-				FROM
-					get_exclusions AS get_exc
-				WHERE order_id =c.order_id)
-		END AS all_exclusions,
+				(
+					SELECT
+						string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exc.exclusions), ', ')
+					FROM
+						get_exclusions AS get_exc
+					WHERE 
+						order_id = t2.order_id
+				)
+			END AS all_exclusions,
 		CASE
-			WHEN c.exclusions IS NULL AND c.extras IS NULL THEN NULL
+			WHEN t2.exclusions IS NULL AND t2.extras IS NULL THEN NULL
 			ELSE
-				(SELECT
-					string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_ext.single_extras), ', ')
-				FROM
-					get_extras AS get_ext
-				WHERE order_id =c.order_id)
+				(
+					SELECT
+						string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_ext.extras), ', ')
+					FROM
+						get_extras AS get_ext
+					WHERE order_id = t2.order_id
+				)
 		END AS all_extras
-	FROM pizza_names AS pn
-	JOIN id_customer_orders AS c
-	ON c.pizza_id = pn.pizza_id
-	LEFT JOIN get_exclusions AS get_exc
-	ON get_exc.order_id = c.order_id AND c.exclusions IS NOT NULL
-	LEFT JOIN get_extras AS get_ext
-	ON get_ext.order_id = c.order_id AND c.extras IS NOT NULL
+	FROM 
+		pizza_names AS t1
+	JOIN
+		id_customer_orders AS t2
+	ON
+		t2.pizza_id = t1.pizza_id
+	LEFT JOIN
+		get_exclusions AS t3
+	ON
+		t3.order_id = t2.order_id AND t2.exclusions IS NOT NULL
+	LEFT JOIN
+		get_extras AS t4
+	ON
+		t4.order_id = t2.order_id AND t2.extras IS NOT NULL
 	GROUP BY 
-		c.row_id,
-		c.order_id,
-		pn.pizza_name,
-		c.exclusions,
-		c.extras
-	ORDER BY c.row_id
+		t2.row_id,
+		t2.order_id,
+		t2.customer_id,
+		t2.order_time,
+		t1.pizza_name,
+		t2.exclusions,
+		t2.extras
+	ORDER BY
+		t2.row_id
 )
 SELECT
-	case
-		WHEN all_exclusions IS NOT NULL AND all_extras IS NULL THEN concat(pizza_name, ' - ', 'Exclude: ', all_exclusions)
-		WHEN all_exclusions IS NULL AND all_extras IS NOT NULL THEN concat(pizza_name, ' - ', 'Extra: ', all_extras)
-		WHEN all_exclusions IS NOT NULL AND all_extras IS NOT NULL THEN concat(pizza_name, ' - ', 'Exclude: ', all_exclusions, ' - ', 'Extra: ', all_extras)
+	order_id,
+	customer_id,
+	CASE
+		WHEN pizza_name = 'Meatlovers' THEN 1
+		ELSE 2
+	END AS pizza_id,
+	order_time,
+	CASE
+		WHEN all_exclusions IS NOT NULL AND all_extras IS NULL THEN CONCAT(pizza_name, ' - ', 'Exclude: ', all_exclusions)
+		WHEN all_exclusions IS NULL AND all_extras IS NOT NULL THEN CONCAT(pizza_name, ' - ', 'Extra: ', all_extras)
+		WHEN all_exclusions IS NOT NULL AND all_extras IS NOT NULL THEN CONCAT(pizza_name, ' - ', 'Exclude: ', all_exclusions, ' - ', 'Extra: ', all_extras)
 		ELSE pizza_name
-	END AS pizza_type
-FROM get_exlusions_and_extras;
+	END AS order_item
+FROM 
+	get_exlusions_and_extras;
 	
--- Result:
+/*
 	
-pizza_type                                                       |
------------------------------------------------------------------+
-Meatlovers                                                       |
-Meatlovers                                                       |
-Meatlovers                                                       |
-Vegetarian                                                       |
-Meatlovers - Exclude: Cheese                                     |
-Meatlovers - Exclude: Cheese                                     |
-Vegetarian - Exclude: Cheese                                     |
-Meatlovers - Extra: Bacon                                        |
-Vegetarian                                                       |
-Vegetarian - Extra: Bacon                                        |
-Meatlovers                                                       |
-Meatlovers - Exclude: Cheese - Extra: Bacon, Chicken             |
-Meatlovers                                                       |
-Meatlovers - Exclude: BBQ Sauce, Mushrooms - Extra: Bacon, Cheese|
+order_id|customer_id|pizza_id|order_time             |order_item                                                       |
+--------+-----------+--------+-----------------------+-----------------------------------------------------------------+
+       1|        101|       1|2021-01-01 18:05:02.000|Meatlovers                                                       |
+       2|        101|       1|2021-01-01 19:00:52.000|Meatlovers                                                       |
+       3|        102|       1|2021-01-02 23:51:23.000|Meatlovers                                                       |
+       3|        102|       2|2021-01-02 23:51:23.000|Vegetarian                                                       |
+       4|        103|       1|2021-01-04 13:23:46.000|Meatlovers - Exclude: Cheese                                     |
+       4|        103|       1|2021-01-04 13:23:46.000|Meatlovers - Exclude: Cheese                                     |
+       4|        103|       2|2021-01-04 13:23:46.000|Vegetarian - Exclude: Cheese                                     |
+       5|        104|       1|2021-01-08 21:00:29.000|Meatlovers - Extra: Bacon                                        |
+       6|        101|       2|2021-01-08 21:03:13.000|Vegetarian                                                       |
+       7|        105|       2|2021-01-08 21:20:29.000|Vegetarian - Extra: Bacon                                        |
+       8|        102|       1|2021-01-09 23:54:33.000|Meatlovers                                                       |
+       9|        103|       1|2021-01-10 11:22:59.000|Meatlovers - Exclude: Cheese - Extra: Bacon, Chicken             |
+      10|        104|       1|2021-01-11 18:34:49.000|Meatlovers                                                       |
+      10|        104|       1|2021-01-11 18:34:49.000|Meatlovers - Exclude: BBQ Sauce, Mushrooms - Extra: Bacon, Cheese|
+      
+*/
 
 -- 5. Generate an alphabetically ordered comma separated ingredient list for each pizza order from 
 -- the customer_orders table and add a 2x in front of any relevant ingredients   
 
--- This query uses the 'get_exclusions' and 'get_extras' temp tables from the previous question.
+-- This query uses the 'get_exclusions' and 'get_extras' temp tables from the previous questions.
 
-DROP TABLE IF EXISTS get_toppings;
-CREATE TEMP TABLE get_toppings AS (
+DROP TABLE IF EXISTS get_pizza_toppings;
+CREATE TEMP TABLE get_pizza_toppings AS (
 	SELECT
 		row_id,
 		order_id,
-		trim(UNNEST(string_to_array(toppings, ',')))::numeric AS single_toppings
-	FROM id_customer_orders AS c
-	JOIN pizza_recipes AS pr
-	ON c.pizza_id = pr.pizza_id
-	GROUP BY row_id, order_id, toppings
+		TRIM(UNNEST(STRING_TO_ARRAY(toppings, ',')))::NUMERIC AS single_toppings,
+		count(*) AS topping_count
+	FROM 
+		id_customer_orders AS c
+	JOIN
+		pizza_recipes AS pr
+	ON
+		c.pizza_id = pr.pizza_id
+	GROUP BY 
+		row_id, 
+		order_id, 
+		toppings
 );
 
 DROP TABLE IF EXISTS ingredients;
@@ -1027,122 +1092,235 @@ CREATE TEMP TABLE ingredients AS (
 	SELECT
 		row_id,
 		order_id,
+		customer_id,
+		order_time,
 		pizza_name,
-		concat(all_toppings, ',', all_extras) AS all_ingredients
+		CONCAT(all_toppings, ',', all_extras) AS all_ingredients
 	FROM
-		(SELECT
-			c.row_id,
-			c.order_id,
-			pn.pizza_name,
-			(SELECT
-				trim(string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_top.single_toppings), ','))
-			FROM
-				get_toppings AS get_top
-			WHERE get_top.row_id = c.row_id
-			AND get_top.single_toppings NOT IN (
-				(SELECT 
-					single_exclusions
-				FROM get_exclusions
-				WHERE c.row_id = row_id)
-			))AS all_toppings,
-			(SELECT
-				trim(string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_extra.single_extras), ','))
-			FROM
-				get_extras AS get_extra
-			WHERE get_extra.row_id = c.row_id
+	(
+		SELECT
+			t2.row_id,
+			t2.order_id,
+			t2.customer_id,
+			t2.order_time,
+			t1.pizza_name,
+			(
+				SELECT
+					TRIM(STRING_AGG((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_toppings.single_toppings), ','))
+				FROM
+					get_pizza_toppings AS get_toppings
+				WHERE 
+					get_toppings.row_id = t2.row_id
+				AND 
+					get_toppings.single_toppings NOT IN (
+					(
+						SELECT 
+							exclusions
+						FROM 
+							get_exclusions
+						WHERE 
+							t2.order_id = order_id
+					)
+				)
+			) AS all_toppings,
+			(
+				SELECT
+					TRIM(STRING_AGG((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_extra.extras), ','))
+				FROM
+					get_extras AS get_extra
+				WHERE
+					get_extra.order_id = t2.order_id
 			) AS all_extras
-		FROM pizza_names AS pn
-		JOIN id_customer_orders AS c
-		ON c.pizza_id = pn.pizza_id
-		ORDER BY c.row_id) AS tmp);
+		FROM
+			pizza_names AS t1
+		JOIN
+			id_customer_orders AS t2
+		ON
+			t2.pizza_id = t1.pizza_id
+		ORDER BY 
+			t2.row_id
+	) AS inner_query
+);
 
-SELECT
-	row_id,
-	pizza_name,
-	string_agg(new_ing, ',') AS toppings
-FROM
-	(SELECT
+SELECT * FROM ingredients;
+
+WITH create_strings AS (
+	SELECT
 		row_id,
+		order_id,
+		customer_id,
 		pizza_name,
+		order_time,
 		CASE
-			WHEN count(each_ing) > 1 THEN concat('2x', each_ing)
-			WHEN each_ing != '' THEN each_ing
-		END AS new_ing
+			WHEN COUNT(each_ingredient) > 1 THEN CONCAT('2x', each_ingredient)
+			WHEN each_ingredient != '' THEN each_ingredient
+		END AS new_ingredient
 	FROM
-		(SELECT 
+	(
+		SELECT 
 			row_id,
+			order_id,
+			customer_id,
 			pizza_name,
-			UNNEST(string_to_array(all_ingredients, ',')) AS each_ing
-		FROM ingredients) AS tmp
+			order_time,
+			UNNEST(STRING_TO_ARRAY(all_ingredients, ',')) AS each_ingredient
+		FROM 
+			ingredients
+	) AS tmp
 	GROUP BY 
 		row_id,
+		order_id,
+		customer_id,
 		pizza_name,
-		each_ing) AS tmp2
-WHERE new_ing IS NOT null
+		order_time,
+		each_ingredient
+	ORDER BY
+		each_ingredient
+)
+SELECT
+	order_id,
+	customer_id,
+	CASE
+		WHEN pizza_name = 'Meatlovers' THEN 1
+		ELSE 2
+	END AS pizza_id,
+	order_time,
+	row_id AS original_row_number,
+	pizza_name || ': ' ||
+	STRING_AGG(new_ingredient, ',') AS toppings
+FROM
+	create_strings
+WHERE 
+	new_ingredient IS NOT null
 GROUP BY 
 	row_id,
-	pizza_name
+	order_id,
+	customer_id,
+	pizza_name,
+	order_time
+ORDER BY
+	row_id;
 
--- Results:
+/*
 	
-row_id|pizza_name|toppings                                                        |
-------+----------+----------------------------------------------------------------+
-     1|Meatlovers|Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
-     2|Meatlovers|Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
-     3|Meatlovers|Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
-     4|Vegetarian|Cheese,Mushrooms,Onions,Peppers,Tomato Sauce,Tomatoes           |
-     5|Meatlovers|Bacon,BBQ Sauce,Beef,Chicken,Mushrooms,Pepperoni,Salami         |
-     6|Meatlovers|Bacon,BBQ Sauce,Beef,Chicken,Mushrooms,Pepperoni,Salami         |
-     7|Vegetarian|Mushrooms,Onions,Peppers,Tomato Sauce,Tomatoes                  |
-     8|Meatlovers|2xBacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami|
-     9|Vegetarian|Cheese,Mushrooms,Onions,Peppers,Tomato Sauce,Tomatoes           |
-    10|Vegetarian|Bacon,Cheese,Mushrooms,Onions,Peppers,Tomato Sauce,Tomatoes     |
-    11|Meatlovers|Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
-    12|Meatlovers|2xBacon,BBQ Sauce,Beef,2xChicken,Mushrooms,Pepperoni,Salami     |
-    13|Meatlovers|Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
-    14|Meatlovers|2xBacon,Beef,2xCheese,Chicken,Pepperoni,Salami                  |
+order_id|customer_id|pizza_id|order_time             |original_row_number|toppings                                                                    |
+--------+-----------+--------+-----------------------+-------------------+----------------------------------------------------------------------------+
+       1|        101|       1|2021-01-01 18:05:02.000|                  1|Meatlovers: Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
+       2|        101|       1|2021-01-01 19:00:52.000|                  2|Meatlovers: Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
+       3|        102|       1|2021-01-02 23:51:23.000|                  3|Meatlovers: Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
+       3|        102|       2|2021-01-02 23:51:23.000|                  4|Vegetarian: Cheese,Mushrooms,Onions,Peppers,Tomatoes,Tomato Sauce           |
+       4|        103|       1|2021-01-04 13:23:46.000|                  5|Meatlovers: Bacon,BBQ Sauce,Beef,Chicken,Mushrooms,Pepperoni,Salami         |
+       4|        103|       1|2021-01-04 13:23:46.000|                  6|Meatlovers: Bacon,BBQ Sauce,Beef,Chicken,Mushrooms,Pepperoni,Salami         |
+       4|        103|       2|2021-01-04 13:23:46.000|                  7|Vegetarian: Mushrooms,Onions,Peppers,Tomatoes,Tomato Sauce                  |
+       5|        104|       1|2021-01-08 21:00:29.000|                  8|Meatlovers: 2xBacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami|
+       6|        101|       2|2021-01-08 21:03:13.000|                  9|Vegetarian: Cheese,Mushrooms,Onions,Peppers,Tomatoes,Tomato Sauce           |
+       7|        105|       2|2021-01-08 21:20:29.000|                 10|Vegetarian: Bacon,Cheese,Mushrooms,Onions,Peppers,Tomatoes,Tomato Sauce     |
+       8|        102|       1|2021-01-09 23:54:33.000|                 11|Meatlovers: Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
+       9|        103|       1|2021-01-10 11:22:59.000|                 12|Meatlovers: 2xBacon,BBQ Sauce,Beef,2xChicken,Mushrooms,Pepperoni,Salami     |
+      10|        104|       1|2021-01-11 18:34:49.000|                 13|Meatlovers: 2xBacon,Beef,2xCheese,Chicken,Pepperoni,Salami                  |
+      10|        104|       1|2021-01-11 18:34:49.000|                 14|Meatlovers: 2xBacon,Beef,2xCheese,Chicken,Pepperoni,Salami                  |
     
+*/
 
 -- 6. What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
 
-WITH get_each_ingredient AS (
-	SELECT 
-		row_id,
-		order_id,
-		pizza_name,
-		UNNEST(string_to_array(all_ingredients, ',')) AS each_ing
-	FROM ingredients
-)
+WITH cte_cleaned_customer_orders AS (
+  SELECT
+    order_id,
+    customer_id,
+    pizza_id,
+    CASE
+      WHEN exclusions IN ('', 'null') THEN NULL
+      ELSE exclusions
+    END AS exclusions,
+    CASE
+      WHEN extras IN ('', 'null', 'NaN') THEN NULL
+      ELSE extras
+    END AS extras,
+    order_time,
+    ROW_NUMBER() OVER () AS original_row_number
+  FROM pizza_runner.customer_orders
+),
+-- split the toppings using our previous solution
+cte_regular_toppings AS (
 SELECT
-	each_ing,
-	count(each_ing) AS n_ingredients
-from
-	get_each_ingredient AS gei
-JOIN clean_runner_orders AS r
-ON r.order_id = gei.order_id
-WHERE 
-	each_ing <> ''
-AND 
-	r.cancellation IS NULL
-GROUP BY each_ing
-ORDER BY n_ingredients DESC;
+  pizza_id,
+  REGEXP_SPLIT_TO_TABLE(toppings, '[,\s]+')::INTEGER AS topping_id
+FROM pizza_runner.pizza_recipes
+),
+-- now we can should left join our regular toppings with all pizzas orders
+cte_base_toppings AS (
+  SELECT
+    cte_cleaned_customer_orders.order_id,
+    cte_cleaned_customer_orders.customer_id,
+    cte_cleaned_customer_orders.pizza_id,
+    cte_cleaned_customer_orders.order_time,
+    cte_cleaned_customer_orders.original_row_number,
+    cte_regular_toppings.topping_id
+  FROM cte_cleaned_customer_orders
+  LEFT JOIN cte_regular_toppings
+    ON cte_cleaned_customer_orders.pizza_id = cte_regular_toppings.pizza_id
+),
+-- now we can generate CTEs for exclusions and extras by the original row number
+cte_exclusions AS (
+  SELECT
+    order_id,
+    customer_id,
+    pizza_id,
+    order_time,
+    original_row_number,
+    REGEXP_SPLIT_TO_TABLE(exclusions, '[,\s]+')::INTEGER AS topping_id
+  FROM cte_cleaned_customer_orders
+  WHERE exclusions IS NOT NULL
+),
+-- check this one!
+cte_extras AS (
+  SELECT
+    order_id,
+    customer_id,
+    pizza_id,
+    order_time,
+    original_row_number,
+    REGEXP_SPLIT_TO_TABLE(extras, '[,\s]+')::INTEGER AS topping_id
+  FROM cte_cleaned_customer_orders
+  WHERE extras IS NOT NULL
+),
+-- now we can perform an except and a union all on the respective CTEs
+-- also check this one!
+cte_combined_orders AS (
+  SELECT * FROM cte_base_toppings
+  EXCEPT
+  SELECT * FROM cte_exclusions
+  UNION ALL
+  SELECT * FROM cte_extras
+)
+-- perform aggregation on topping_id and join to get topping names
+SELECT
+  t2.topping_name,
+  COUNT(*) AS topping_count
+FROM cte_combined_orders AS t1
+INNER JOIN pizza_runner.pizza_toppings AS t2
+  ON t1.topping_id = t2.topping_id
+GROUP BY t2.topping_name
+ORDER BY topping_count DESC;
+	
     
 -- Results
 
-each_ing    |n_ingredients|
-------------+-------------+
-Bacon       |           12|
-Mushrooms   |           11|
-Cheese      |           10|
-Chicken     |            9|
-Salami      |            9|
-Pepperoni   |            9|
-Beef        |            9|
-BBQ Sauce   |            8|
-Tomato Sauce|            3|
-Tomatoes    |            3|
-Peppers     |            3|
-Onions      |            3|
+topping_name|total_toppings|
+------------+--------------+
+Cheese      |            15|
+Bacon       |            14|
+Mushrooms   |            14|
+Chicken     |            11|
+Pepperoni   |            10|
+Salami      |            10|
+BBQ Sauce   |            10|
+Beef        |            10|
+Tomato Sauce|             4|
+Onions      |             4|
+Tomatoes    |             4|
+Peppers     |             4|
     
 /* 
  * Pizza Runner
