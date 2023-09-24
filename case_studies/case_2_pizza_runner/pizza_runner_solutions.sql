@@ -612,7 +612,7 @@ WITH get_distances AS (
 )
 SELECT
 	customer_id,
-	round(avg(distance), 2) AS avg_distance
+	ROUND(AVG(distance), 2) AS avg_distance
 FROM
 	get_distances
 GROUP BY
@@ -654,7 +654,7 @@ WITH get_distances AS (
 )
 SELECT
 	runner_id,
-	round(avg(distance), 2) AS avg_distance
+	ROUND(AVG(distance), 2) AS avg_distance
 FROM
 	get_distances
 GROUP BY
@@ -866,7 +866,7 @@ CREATE TEMP TABLE get_extras AS (
 		ROW_NUMBER() OVER () AS row_id,
 		order_id,
 		TRIM(UNNEST(STRING_TO_ARRAY(extras, ',')))::NUMERIC AS extras,
-		count(*) AS e_count
+		COUNT(*) AS extras_count
 	FROM 
 		clean_customer_orders
 	WHERE
@@ -879,7 +879,7 @@ CREATE TEMP TABLE get_extras AS (
 WITH most_common_extra AS (
 	SELECT
 		extras,
-		SUM(e_count) AS total_extras
+		SUM(extras_count) AS total_extras
 	FROM
 		get_extras
 	GROUP BY
@@ -926,7 +926,7 @@ CREATE TEMP TABLE get_exclusions AS (
 WITH most_common_exclusion AS (
 	SELECT
 		exclusions,
-		sum(total_exclusions) AS total_exclusions
+		SUM(total_exclusions) AS total_exclusions
 	FROM
 		get_exclusions
 	GROUP BY
@@ -986,7 +986,7 @@ WITH get_exlusions_and_extras AS (
 			ELSE 
 				(
 					SELECT
-						string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exc.exclusions::NUMERIC), ', ')
+						STRING_AGG((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_exc.exclusions::NUMERIC), ', ')
 					FROM
 						get_exclusions AS get_exc
 					WHERE 
@@ -998,7 +998,7 @@ WITH get_exlusions_and_extras AS (
 			ELSE
 				(
 					SELECT
-						string_agg((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_ext.extras), ', ')
+						STRING_AGG((SELECT topping_name FROM pizza_toppings WHERE topping_id = get_ext.extras), ', ')
 					FROM
 						get_extras AS get_ext
 					WHERE order_id = t2.order_id
@@ -1078,7 +1078,7 @@ CREATE TEMP TABLE get_pizza_toppings AS (
 		row_id,
 		order_id,
 		TRIM(UNNEST(STRING_TO_ARRAY(toppings, ',')))::NUMERIC AS single_toppings,
-		count(*) AS topping_count
+		COUNT(*) AS topping_count
 	FROM 
 		id_customer_orders AS c
 	JOIN
@@ -1452,7 +1452,7 @@ CREATE TEMP TABLE runner_rating_system (
 INSERT INTO runner_rating_system 
 	SELECT
 		order_id,
-		floor(1 + 5 * random()) AS rating
+		FLOOR(1 + 5 * random()) AS rating
 	FROM
 		clean_runner_orders
 	WHERE
