@@ -1521,114 +1521,163 @@ total_income|
 142|
 
 
-#### 3. The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would  you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for  each successful customer order between 1 to 5.
+**3.**  The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for each successful customer order between 1 to 5.
 
-````sql
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
 DROP TABLE IF EXISTS runner_rating_system;
-CREATE TABLE runner_rating_system (
-	"rating_id" INTEGER,
-	"customer_id" INTEGER,
-	"order_id" INTEGER,
-	"runner_id" INTEGER,
-	"rating" INTEGER
+CREATE TEMP TABLE runner_rating_system (
+	order_id int,
+  	rating int
 );
-INSERT INTO runner_rating_system (
-		"rating_id",
-		"customer_id",
-		"order_id",
-		"runner_id",
-		"rating"
-	)
-VALUES ('1', '101', '1', '1', '3'),
-	('2', '103', '4', '2', '4'),
-	('3', '102', '5', '3', '5'),
-	('4', '102', '8', '2', '2'),
-	('5', '104', '10', '1', '5');
-````
+
+INSERT INTO runner_rating_system 
+	SELECT
+		order_id,
+		floor(1 + 5 * random()) AS rating
+	FROM
+		clean_runner_orders
+	WHERE
+		pickup_time IS NOT NULL;
+
+SELECT * 
+FROM runner_rating_system;
+  ```
+</details>
 
 **Results:**
 
-rating_id|customer_id|order_id|runner_id|rating|
----------|-----------|--------|---------|------|
-1|        101|       1|        1|     3|
-2|        103|       4|        2|     4|
-3|        102|       5|        3|     5|
-4|        102|       8|        2|     2|
-5|        104|      10|        1|     5|
+order_id|rating|
+--------|------|
+1|     3|
+2|     4|
+3|     1|
+3|     1|
+4|     5|
+4|     5|
+5|     4|
+5|     4|
+7|     3|
+8|     5|
+10|     3|
 
-#### 4. Using your newly generated table - can you join all of the information together to form a table which has the following information for successful deliveries?
-	*customer_id
-	*order_id
-	*runner_id
-	*rating
-	*order_time
-	*pickup_time
-	*Time between order and pickup
-	*Delivery duration
-	*Average speed
-	*Total number of pizzas 
+**4.**  Using your newly generated table - can you join all of the information together to form a table which has the following information for successful deliveries?
+* customer_id
+* order_id
+* runner_id
+* rating
+* order_time
+* pickup_time
+* Time between order and pickup
+* Delivery duration
+* Average speed
+* Total number of pizzas
 
-````sql
-SELECT co.customer_id,
-	co.order_id,
-	ro.runner_id,
-	rrs.rating,
-	co.order_time,
-	ro.pickup_time,
-	(
-		ro.pickup_time::timestamp - co.order_time::timestamp
-	) AS time_diff,
-	ro.duration,
-	round(60 * ro.distance / ro.duration, 2) AS avg_speed,
-	count(ro.pickup_time) AS total_delivered
-FROM new_customer_orders AS co
-	JOIN new_runner_orders AS ro ON ro.order_id = co.order_id
-	LEFT JOIN runner_rating_system AS rrs ON ro.order_id = rrs.order_id
-WHERE ro.cancellation IS NULL
-GROUP BY co.customer_id,
-	co.order_id,
-	ro.runner_id,
-	rrs.rating,
-	co.order_time,
-	ro.pickup_time,
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT
+	t1.customer_id,
+	t1.order_id,
+	t2.runner_id,
+	t3.rating,
+	t1.order_time,
+	t2.pickup_time,
+	(t2.pickup_time::TIMESTAMP - t1.order_time::TIMESTAMP) AS time_diff,
+	t2.duration,
+	ROUND(60 * t2.distance / t2.duration, 2) AS avg_speed_kph,
+	COUNT(t2.pickup_time) AS total_delivered
+FROM 
+	clean_customer_orders AS t1
+JOIN
+	clean_runner_orders AS t2
+ON 
+	t2.order_id = t1.order_id
+LEFT JOIN 
+	runner_rating_system AS t3
+ON 
+	t2.order_id = t3.order_id
+WHERE
+	t2.cancellation IS NULL
+GROUP BY
+	t1.customer_id,
+	t1.order_id,
+	t2.runner_id,
+	t3.rating,
+	t1.order_time,
+	t2.pickup_time,
 	time_diff,
-	ro.duration,
+	t2.duration,
 	avg_speed
-ORDER BY co.order_id
-````
+ORDER BY 
+	t1.order_id;
+  ```
+</details>
 
 **Results:**
 
-customer_id|order_id|runner_id|rating|order_time             |pickup_time            |time_diff|duration|avg_speed|total_delivered|
+customer_id|order_id|runner_id|rating|order_time             |pickup_time            |time_diff|duration|avg_speed_kph|total_delivered|
 -----------|--------|---------|------|-----------------------|-----------------------|---------|--------|---------|---------------|
-101|       1|        1|     3|2020-01-01 18:05:02.000|2020-01-01 18:15:34.000| 00:10:32|      32|    37.50|              1|
-101|       2|        1|      |2020-01-01 19:00:52.000|2020-01-01 19:10:54.000| 00:10:02|      27|    44.44|              1|
-102|       3|        1|      |2020-01-02 23:51:23.000|2020-01-03 00:12:37.000| 00:21:14|      20|    40.20|              2|
-103|       4|        2|     4|2020-01-04 13:23:46.000|2020-01-04 13:53:03.000| 00:29:17|      40|    35.10|              3|
-104|       5|        3|     5|2020-01-08 21:00:29.000|2020-01-08 21:10:57.000| 00:10:28|      15|    40.00|              1|
-105|       7|        2|      |2020-01-08 21:20:29.000|2020-01-08 21:30:45.000| 00:10:16|      25|    60.00|              1|
-102|       8|        2|     2|2020-01-09 23:54:33.000|2020-01-10 00:15:02.000| 00:20:29|      15|    93.60|              1|
-104|      10|        1|     5|2020-01-11 18:34:49.000|2020-01-11 18:50:20.000| 00:15:31|      10|    60.00|              2|
+101|       1|        1|     3|2021-01-01 18:05:02.000|2021-01-01 18:15:34.000| 00:10:32|      32|    37.50|              1|
+101|       2|        1|     4|2021-01-01 19:00:52.000|2021-01-01 19:10:54.000| 00:10:02|      27|    44.44|              1|
+102|       3|        1|     1|2021-01-02 23:51:23.000|2021-01-03 00:12:37.000| 00:21:14|      20|    40.20|              2|
+103|       4|        2|     5|2021-01-04 13:23:46.000|2021-01-04 13:53:03.000| 00:29:17|      40|    35.10|              3|
+104|       5|        3|     4|2021-01-08 21:00:29.000|2021-01-08 21:10:57.000| 00:10:28|      15|    40.00|              1|
+105|       7|        2|     3|2021-01-08 21:20:29.000|2021-01-08 21:30:45.000| 00:10:16|      25|    60.00|              1|
+102|       8|        2|     5|2021-01-09 23:54:33.000|2021-01-10 00:15:02.000| 00:20:29|      15|    93.60|              1|
+104|      10|        1|     3|2021-01-11 18:34:49.000|2021-01-11 18:50:20.000| 00:15:31|      10|    60.00|              2|
 
-#### 5. If a Meat Lovers pizza was \$12.00 and Vegetarian \$10.00 fixed prices with no cost for extras and each runner is paid \$0.30 per kilometre traveled - how much money does Pizza Runner have left over after these deliveries?
+**5.**  If a Meat Lovers pizza was \$12 and Vegetarian \$10 fixed prices with no cost for extras and each runner is paid $0.30 per kilometer traveled - how much money does Pizza Runner have left over after these deliveries?
 
-````sql
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
 WITH total_payout AS (
 	SELECT
-		(sum(distance*2) * .30) AS payout
-	FROM new_runner_orders
-	WHERE cancellation IS NULL
+		(SUM(distance) * .30) AS payout
+	FROM 
+		clean_runner_orders
+	WHERE 
+		pickup_time IS NOT NULL
+),
+calculate_totals AS (
+	SELECT
+		t1.order_id,
+		SUM(
+			CASE
+				WHEN pizza_id = 1 THEN 12
+				WHEN pizza_id = 2 THEN 10
+			END
+		) AS total_price
+	FROM 
+		clean_customer_orders AS t1
+	JOIN
+		clean_runner_orders AS t2 
+	ON
+		t2.order_id = t1.order_id
+	WHERE
+		t2.cancellation IS NULL
+	GROUP BY 
+		t1.order_id
 )
 SELECT
-	total_income - payout AS profit
-from
-	total_payout,
-	pizza_income;
-
-````
+	ROUND(SUM(total_price) - payout, 2) AS total_revenue
+FROM
+	calculate_totals, total_payout
+GROUP BY
+	payout;
+  ```
+</details>
 
 **Results:**
 
-profit|
-------|
-50.880|
+total_revenue|
+-------------|
+94.440|
