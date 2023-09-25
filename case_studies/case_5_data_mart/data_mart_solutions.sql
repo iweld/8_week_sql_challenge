@@ -23,7 +23,7 @@ SELECT *
 FROM data_mart.weekly_sales
 LIMIT 10;
 
--- Results
+/*
 
 week_date|region|platform|segment|customer_type|transactions|sales   |
 ---------+------+--------+-------+-------------+------------+--------+
@@ -37,6 +37,8 @@ week_date|region|platform|segment|customer_type|transactions|sales   |
 31/8/20  |ASIA  |Shopify |F1     |Existing     |        2158|  371417|
 31/8/20  |AFRICA|Shopify |F2     |New          |         318|   49557|
 31/8/20  |AFRICA|Retail  |C3     |New          |      111032| 3888162|
+
+*/
 
 -- In a single query, perform the following operations and generate a new table in the data_mart schema named clean_weekly_sales:
 -- Step 1. Convert the week_date to a DATE format.
@@ -57,58 +59,61 @@ week_date|region|platform|segment|customer_type|transactions|sales   |
 --   F	     Families
 
 -- Step 7. Ensure all null string values with an "unknown" string value in the original segment column as well as the new age_band and demographic columns.
--- Step 8. Generate a new avg_transaction column as the sales value divided by transactions rounded to 2 decimal places for each record.
+-- Step 8. Generate a new avg_transaction column as the sales value divided by transactions ROUNDed to 2 decimal places for each record.
 
 DROP TABLE IF EXISTS clean_weekly_sales;
 CREATE TEMP TABLE clean_weekly_sales AS (
 SELECT
 	-- We must not only convert to date type, we must also change the datestyle
 	-- or we get  'ERROR: date/time field value out of range'
-	to_date(week_date, 'dd/mm/yy') AS week_day,
-	date_part('week', to_date(week_date, 'dd/mm/yy'))::int AS week_number,
-	date_part('month', to_date(week_date, 'dd/mm/yy'))::int AS month_number,
-	date_part('year', to_date(week_date, 'dd/mm/yy'))::int AS calendar_year,
+	TO_DATE(week_date, 'dd/mm/yy') AS week_day,
+	DATE_PART('week', TO_DATE(week_date, 'dd/mm/yy'))::int AS week_number,
+	DATE_PART('month', TO_DATE(week_date, 'dd/mm/yy'))::int AS month_number,
+	DATE_PART('year', TO_DATE(week_date, 'dd/mm/yy'))::int AS calendar_year,
 	region,
 	platform,
 	CASE 
-		WHEN segment IS NOT NULL OR segment <> 'null' THEN segment
-		ELSE 'unknown'
+		WHEN segment IS NULL OR trim(segment) = 'null' THEN 'unknown'
+		ELSE segment
 	END AS segment,
 	CASE 
-		WHEN substring(segment, 2, 1) = '1' THEN 'Young Adults'
-		WHEN substring(segment, 2, 1) = '2' THEN 'Middle Aged'
-		WHEN substring(segment, 2, 1) = '3' OR substring(segment, 2, 1) = '4'  THEN 'Retirees'
+		WHEN SUBSTRING(segment, 2, 1) = '1' THEN 'Young Adults'
+		WHEN SUBSTRING(segment, 2, 1) = '2' THEN 'Middle Aged'
+		WHEN SUBSTRING(segment, 2, 1) = '3' OR SUBSTRING(segment, 2, 1) = '4'  THEN 'Retirees'
 		ELSE 'unknown'
 	END AS age_band,
 	CASE 
-		WHEN substring(segment, 1, 1) = 'C' THEN 'Couples'
-		WHEN substring(segment, 1, 1) = 'F' THEN 'Families'
+		WHEN SUBSTRING(segment, 1, 1) = 'C' THEN 'Couples'
+		WHEN SUBSTRING(segment, 1, 1) = 'F' THEN 'Families'
 		ELSE 'unknown'
 	END AS demographics,
+	customer_type,
 	transactions,
 	sales,
-	round(sales / transactions, 2) AS average_transactions
+	ROUND(sales / transactions, 2) AS average_transactions
 FROM data_mart.weekly_sales
 );
 
-SELECT * FROM clean_weekly_sales 
+SELECT * 
+FROM clean_weekly_sales
 LIMIT 10;
 
--- Results:
+/*
 
-week_day  |week_number|month_number|calendar_year|region|platform|segment|age_band    |demographics|transactions|sales   |average_transactions|
-----------+-----------+------------+-------------+------+--------+-------+------------+------------+------------+--------+--------------------+
-2020-08-31|         36|           8|         2020|ASIA  |Retail  |C3     |Retirees    |Couples     |      120631| 3656163|               30.00|
-2020-08-31|         36|           8|         2020|ASIA  |Retail  |F1     |Young Adults|Families    |       31574|  996575|               31.00|
-2020-08-31|         36|           8|         2020|USA   |Retail  |null   |unknown     |unknown     |      529151|16509610|               31.00|
-2020-08-31|         36|           8|         2020|EUROPE|Retail  |C1     |Young Adults|Couples     |        4517|  141942|               31.00|
-2020-08-31|         36|           8|         2020|AFRICA|Retail  |C2     |Middle Aged |Couples     |       58046| 1758388|               30.00|
-2020-08-31|         36|           8|         2020|CANADA|Shopify |F2     |Middle Aged |Families    |        1336|  243878|              182.00|
-2020-08-31|         36|           8|         2020|AFRICA|Shopify |F3     |Retirees    |Families    |        2514|  519502|              206.00|
-2020-08-31|         36|           8|         2020|ASIA  |Shopify |F1     |Young Adults|Families    |        2158|  371417|              172.00|
-2020-08-31|         36|           8|         2020|AFRICA|Shopify |F2     |Middle Aged |Families    |         318|   49557|              155.00|
-2020-08-31|         36|           8|         2020|AFRICA|Retail  |C3     |Retirees    |Couples     |      111032| 3888162|               35.00|
+week_day  |week_number|month_number|calendar_year|region|platform|segment|age_band    |demographics|customer_type|transactions|sales   |average_transactions|
+----------+-----------+------------+-------------+------+--------+-------+------------+------------+-------------+------------+--------+--------------------+
+2020-08-31|         36|           8|         2020|ASIA  |Retail  |C3     |Retirees    |Couples     |New          |      120631| 3656163|               30.00|
+2020-08-31|         36|           8|         2020|ASIA  |Retail  |F1     |Young Adults|Families    |New          |       31574|  996575|               31.00|
+2020-08-31|         36|           8|         2020|USA   |Retail  |unknown|unknown     |unknown     |Guest        |      529151|16509610|               31.00|
+2020-08-31|         36|           8|         2020|EUROPE|Retail  |C1     |Young Adults|Couples     |New          |        4517|  141942|               31.00|
+2020-08-31|         36|           8|         2020|AFRICA|Retail  |C2     |Middle Aged |Couples     |New          |       58046| 1758388|               30.00|
+2020-08-31|         36|           8|         2020|CANADA|Shopify |F2     |Middle Aged |Families    |Existing     |        1336|  243878|              182.00|
+2020-08-31|         36|           8|         2020|AFRICA|Shopify |F3     |Retirees    |Families    |Existing     |        2514|  519502|              206.00|
+2020-08-31|         36|           8|         2020|ASIA  |Shopify |F1     |Young Adults|Families    |Existing     |        2158|  371417|              172.00|
+2020-08-31|         36|           8|         2020|AFRICA|Shopify |F2     |Middle Aged |Families    |New          |         318|   49557|              155.00|
+2020-08-31|         36|           8|         2020|AFRICA|Retail  |C3     |Retirees    |Couples     |New          |      111032| 3888162|               35.00|
 
+*/
 
 /*
 	2. Data Exploration
@@ -117,7 +122,7 @@ week_day  |week_number|month_number|calendar_year|region|platform|segment|age_ba
 -- 1. What day of the week is used for each week_date value?
 
 SELECT
-	DISTINCT date_part('dow', week_day)::int AS day_of_week,
+	DISTINCT DATE_PART('dow', week_day)::int AS day_of_week,
 	to_char(week_day, 'Day') AS day_of_week_name
 FROM clean_weekly_sales;
 
@@ -196,7 +201,7 @@ missing_weeks|
 
 SELECT 
 	calendar_year,
-	sum(transactions) AS total_transactions
+	SUM(transactions) AS total_transactions
 FROM clean_weekly_sales
 GROUP BY calendar_year
 ORDER BY calendar_year;
@@ -215,7 +220,7 @@ SELECT
 	region,
 	calendar_year,
 	month_number,
-	sum(sales) AS total_sales
+	SUM(sales) AS total_sales
 FROM clean_weekly_sales
 GROUP BY 
 	region,
@@ -239,7 +244,7 @@ USA          |         2018|           3|   52734998|
         
 SELECT 
 	platform,
-	sum(transactions) AS total_transactions
+	SUM(transactions) AS total_transactions
 FROM clean_weekly_sales
 GROUP BY 
 	platform;      
@@ -256,24 +261,24 @@ Retail  |        1081934227|
 SELECT
 	calendar_year,
 	month_number,
-	round(100 * sum(
+	ROUND(100 * SUM(
 		CASE
 			WHEN platform = 'Retail' THEN total_sales
 			ELSE 0
 		END 
-	) / sum(total_sales), 2) AS retail_perc,
-	round(100 * sum(
+	) / SUM(total_sales), 2) AS retail_perc,
+	ROUND(100 * SUM(
 		CASE
 			WHEN platform = 'Shopify' THEN total_sales
 			ELSE 0
 		END 
-	) / sum(total_sales), 2) AS shopify_perc
+	) / SUM(total_sales), 2) AS shopify_perc
 from
 	(SELECT 
 		platform,
 		calendar_year,
 		month_number,
-		sum(sales) AS total_sales
+		SUM(sales) AS total_sales
 	FROM clean_weekly_sales
 	GROUP BY 
 		platform,
@@ -314,11 +319,11 @@ calendar_year|month_number|retail_perc|shopify_perc|
 SELECT 
 	calendar_year,
 	demographics,
-	sum(sales) AS sales_per_demographic,
+	SUM(sales) AS sales_per_demographic,
 	/* We can nest aggregate functions inside a window function because it operates as a level above the *group by* 
 	 * aime.m.shaker@gmail.com
 	 */
-	round(100 * sum(sales) / sum(sum(sales)) OVER (PARTITION BY calendar_year), 2) AS percentage
+	ROUND(100 * SUM(sales) / SUM(SUM(sales)) OVER (PARTITION BY calendar_year), 2) AS percentage
 FROM clean_weekly_sales
 GROUP BY 
 	demographics,
@@ -347,9 +352,9 @@ WITH get_total_sales_from_all AS (
 	SELECT
 		demographics,
 		age_band,
-		sum(sales) AS total_sales,
-		rank() OVER (ORDER BY sum(sales) desc) AS rnk,
-		round(100 * sum(sales) / sum(sum(sales)) over (), 2) AS percentage
+		SUM(sales) AS total_sales,
+		rank() OVER (ORDER BY SUM(sales) desc) AS rnk,
+		ROUND(100 * SUM(sales) / SUM(SUM(sales)) over (), 2) AS percentage
 	FROM 
 		clean_weekly_sales
 	WHERE
@@ -387,7 +392,7 @@ Families    |Retirees| 6634686916|     28.13|
 SELECT
 	calendar_year,
 	platform,
-	(sum(sales) / sum(transactions)) AS avg_transaction_size
+	(SUM(sales) / SUM(transactions)) AS avg_transaction_size
 FROM clean_weekly_sales
 GROUP BY
 	calendar_year,
@@ -447,7 +452,7 @@ SELECT
 		WHEN week_number BETWEEN 25 AND 28 THEN 'After'
 		ELSE null
 	END AS time_period,
-	sum(sales) AS total_sales
+	SUM(sales) AS total_sales
 FROM
 	clean_weekly_sales
 WHERE

@@ -8,7 +8,7 @@
 
 :exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:
 
-**A. Data Cleansing Steps**
+#### Part A: Data Cleansing Steps
 
 Lets take a look at the first 10 records to see what we have.
 
@@ -54,56 +54,57 @@ In a single query, perform the following operations and generate a new table in 
 ````sql
 DROP TABLE IF EXISTS clean_weekly_sales;
 CREATE TEMP TABLE clean_weekly_sales AS (
-	SELECT -- We must not only convert to date type, we must also change the datestyle
-		-- or we get  'ERROR: date/time field value out of range'
-		to_date(week_date, 'dd/mm/yy') AS week_day,
-		date_part('week', to_date(week_date, 'dd/mm/yy'))::int AS week_number,
-		date_part('month', to_date(week_date, 'dd/mm/yy'))::int AS month_number,
-		date_part('year', to_date(week_date, 'dd/mm/yy'))::int AS calendar_year,
-		region,
-		platform,
-		CASE
-			WHEN segment IS NOT NULL
-			OR segment <> 'null' THEN segment
-			ELSE 'unknown'
-		END AS segment,
-		CASE
-			WHEN substring(segment, 2, 1) = '1' THEN 'Young Adults'
-			WHEN substring(segment, 2, 1) = '2' THEN 'Middle Aged'
-			WHEN substring(segment, 2, 1) = '3'
-			OR substring(segment, 2, 1) = '4' THEN 'Retirees'
-			ELSE 'unknown'
-		END AS age_band,
-		CASE
-			WHEN substring(segment, 1, 1) = 'C' THEN 'Couples'
-			WHEN substring(segment, 1, 1) = 'F' THEN 'Families'
-			ELSE 'unknown'
-		END AS demographics,
-		transactions,
-		sales,
-		round(sales / transactions, 2) AS average_transactions
-	FROM weekly_sales
+SELECT
+	-- We must not only convert to date type, we must also change the datestyle
+	-- or we get  'ERROR: date/time field value out of range'
+	TO_DATE(week_date, 'dd/mm/yy') AS week_day,
+	DATE_PART('week', TO_DATE(week_date, 'dd/mm/yy'))::int AS week_number,
+	DATE_PART('month', TO_DATE(week_date, 'dd/mm/yy'))::int AS month_number,
+	DATE_PART('year', TO_DATE(week_date, 'dd/mm/yy'))::int AS calendar_year,
+	region,
+	platform,
+	CASE 
+		WHEN segment IS NULL OR trim(segment) = 'null' THEN 'unknown'
+		ELSE segment
+	END AS segment,
+	CASE 
+		WHEN SUBSTRING(segment, 2, 1) = '1' THEN 'Young Adults'
+		WHEN SUBSTRING(segment, 2, 1) = '2' THEN 'Middle Aged'
+		WHEN SUBSTRING(segment, 2, 1) = '3' OR SUBSTRING(segment, 2, 1) = '4'  THEN 'Retirees'
+		ELSE 'unknown'
+	END AS age_band,
+	CASE 
+		WHEN SUBSTRING(segment, 1, 1) = 'C' THEN 'Couples'
+		WHEN SUBSTRING(segment, 1, 1) = 'F' THEN 'Families'
+		ELSE 'unknown'
+	END AS demographics,
+	customer_type,
+	transactions,
+	sales,
+	ROUND(sales / transactions, 2) AS average_transactions
+FROM data_mart.weekly_sales
 );
-SELECT *
+
+SELECT * 
 FROM clean_weekly_sales
 LIMIT 10;
 ````
 **Results:**
 
-week_day  |week_number|month_number|calendar_year|region|platform|segment|age_band    |demographics|transactions|sales   |average_transactions|
-----------|-----------|------------|-------------|------|--------|-------|------------|------------|------------|--------|--------------------|
-2020-08-31|         36|           8|         2020|ASIA  |Retail  |C3     |Retirees    |Couples     |      120631| 3656163|               30.00|
-2020-08-31|         36|           8|         2020|ASIA  |Retail  |F1     |Young Adults|Families    |       31574|  996575|               31.00|
-2020-08-31|         36|           8|         2020|USA   |Retail  |null   |unknown     |unknown     |      529151|16509610|               31.00|
-2020-08-31|         36|           8|         2020|EUROPE|Retail  |C1     |Young Adults|Couples     |        4517|  141942|               31.00|
-2020-08-31|         36|           8|         2020|AFRICA|Retail  |C2     |Middle Aged |Couples     |       58046| 1758388|               30.00|
-2020-08-31|         36|           8|         2020|CANADA|Shopify |F2     |Middle Aged |Families    |        1336|  243878|              182.00|
-2020-08-31|         36|           8|         2020|AFRICA|Shopify |F3     |Retirees    |Families    |        2514|  519502|              206.00|
-2020-08-31|         36|           8|         2020|ASIA  |Shopify |F1     |Young Adults|Families    |        2158|  371417|              172.00|
-2020-08-31|         36|           8|         2020|AFRICA|Shopify |F2     |Middle Aged |Families    |         318|   49557|              155.00|
-2020-08-31|         36|           8|         2020|AFRICA|Retail  |C3     |Retirees    |Couples     |      111032| 3888162|               35.00|
+week_day  |week_number|month_number|calendar_year|region|platform|segment|age_band    |demographics|customer_type|transactions|sales   |average_transactions|
+----------|-----------|------------|-------------|------|--------|-------|------------|------------|-------------|------------|--------|--------------------|
+2020-08-31|         36|           8|         2020|ASIA  |Retail  |C3     |Retirees    |Couples     |New          |      120631| 3656163|               30.00|
+2020-08-31|         36|           8|         2020|ASIA  |Retail  |F1     |Young Adults|Families    |New          |       31574|  996575|               31.00|
+2020-08-31|         36|           8|         2020|USA   |Retail  |unknown|unknown     |unknown     |Guest        |      529151|16509610|               31.00|
+2020-08-31|         36|           8|         2020|EUROPE|Retail  |C1     |Young Adults|Couples     |New          |        4517|  141942|               31.00|
+2020-08-31|         36|           8|         2020|AFRICA|Retail  |C2     |Middle Aged |Couples     |New          |       58046| 1758388|               30.00|
+2020-08-31|         36|           8|         2020|CANADA|Shopify |F2     |Middle Aged |Families    |Existing     |        1336|  243878|              182.00|
+2020-08-31|         36|           8|         2020|AFRICA|Shopify |F3     |Retirees    |Families    |Existing     |        2514|  519502|              206.00|
+2020-08-31|         36|           8|         2020|ASIA  |Shopify |F1     |Young Adults|Families    |Existing     |        2158|  371417|              172.00|
+2020-08-31|         36|           8|         2020|AFRICA|Shopify |F2     |Middle Aged |Families    |New          |         318|   49557|              155.00|
+2020-08-31|         36|           8|         2020|AFRICA|Retail  |C3     |Retirees    |Couples     |New          |      111032| 3888162|               35.00|
 
-**B. Data Exploration**
+#### Part A: Data Exploration
 
 #### 1. What day of the week is used for each week_date value?
 
