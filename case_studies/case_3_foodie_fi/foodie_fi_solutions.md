@@ -1,6 +1,12 @@
-# Foodie-Fi
-## Questions and Answers
-### by jaime.m.shaker@gmail.com
+## Foodie-Fi
+### SQL Case Study #3 Solutions
+
+**Author**: Jaime M. Shaker <br />
+**Email**: jaime.m.shaker@gmail.com <br />
+**Website**: https://www.shaker.dev <br />
+**LinkedIn**: https://www.linkedin.com/in/jaime-shaker/  <br />
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:
 
 
 ❗ **Note** ❗
@@ -766,3 +772,6 @@ customer_id|plan_id|plan_name    |payment_date|amount|payment_ord|
 19|      2|pro monthly  |  2020-06-29| 19.90|          1|
 19|      2|pro monthly  |  2020-07-29| 19.90|          2|
 19|      3|pro annual   |  2020-08-29|199.00|          3|
+
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:

@@ -1738,3 +1738,5 @@ pizza_id|pizza_name|toppings                             |
 1|Meatlovers|1, 2, 3, 4, 5, 6, 8, 10              |
 2|Vegetarian|4, 6, 7, 9, 11, 12                   |
 3|Supreme   |1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12|
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:
