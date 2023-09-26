@@ -436,11 +436,20 @@ calendar_year|platform|incorrect_avg_transaction_size|correct_avg_transaction_si
 	According to Danny, This technique is usually used when we inspect an important event and want to inspect the 
 	impact before and after a certain point in time.
 	
-	Taking the week_date value of 2020-06-15 as the baseline week where the Data Mart sustainable packaging changes came into effect.
+	Examples of these types of events would be...
+		
+		- Start Accepting Mobile App payments
+		- Add/Remove service fees
+		- Pre/Post World Wide Events (Covid, 9-11, War...)
+	
+	For this example we are taking the week_date value of 2020-06-15 as the baseline week where the Data Mart sustainable 
+	packaging changes came into effect.
 
 	We would include all week_date values for 2020-06-15 as the start of the period **after** the change and the 
 	previous week_date values would be **before**.
-*/    
+*/
+
+-- Start by getting the Week number of the base line event.
          
 SELECT DISTINCT 
 	week_number
@@ -461,13 +470,15 @@ week_number|
 -- 1. What is the total sales for the 4 weeks before and after 2020-06-15? What is the growth or reduction 
 -- rate in actual values and percentage of sales? 
  
-DROP TABLE IF EXISTS before_after_sales;
-CREATE TEMP TABLE before_after_sales AS (
+DROP TABLE IF EXISTS before_after_sales_limited;
+CREATE TEMP TABLE before_after_sales_limited AS (
 	SELECT
+		-- Set the Week number to be either before of after baseline event.
 		CASE
 			WHEN week_number BETWEEN 21 AND 24 THEN 'Before'
 			WHEN week_number BETWEEN 25 AND 28 THEN 'After'
-			ELSE null
+			-- Any week more than 4 weeks prior or after baseline event is considered NULL
+			ELSE NULL
 		END AS time_period,
 		SUM(sales) AS total_sales,
 		SUM(transactions) AS total_transactions,
@@ -484,13 +495,14 @@ CREATE TEMP TABLE before_after_sales AS (
 		time_period DESC
 );
 
+
 WITH get_sales_diff AS (
 	SELECT
 		time_period,
 		total_sales - LAG(total_sales) OVER (ORDER BY time_period) AS sales_difference,
-		ROUND(100 * ((total_sales::NUMERIC / LAG(total_sales) OVER (ORDER BY time_period)) - 1),2) AS sales_change
+		ROUND(100 * ((LAG(total_sales) OVER (ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
 	FROM
-		before_after_sales
+		before_after_sales_limited
 )
 SELECT
 	sales_difference,
@@ -504,12 +516,13 @@ WHERE
 	
 sales_difference|sales_change|
 ----------------+------------+
-        26884188|        1.16|
+        26884188|       -1.15|
         
 */        
 
 -- 2. What about the entire 12 weeks before and after?
 
+-- We can use the same logic as the previous question, however we need to extend the timeframe.
 DROP TABLE IF EXISTS before_after_sales_full;
 CREATE TEMP TABLE before_after_sales_full AS (
 	SELECT
@@ -537,7 +550,7 @@ WITH get_sales_diff AS (
 	SELECT
 		time_period,
 		total_sales - LAG(total_sales) OVER (ORDER BY time_period) AS sales_difference,
-		ROUND(100 * ((total_sales::NUMERIC / LAG(total_sales) OVER (ORDER BY time_period)) - 1),2) AS sales_change
+		ROUND(100 * ((LAG(total_sales) OVER (ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
 	FROM
 		before_after_sales_full
 )
@@ -553,16 +566,125 @@ WHERE
 	
 sales_difference|sales_change|
 ----------------+------------+
-       152325394|        2.18|
+       152325394|       -2.14|
         
 */
 
 -- 3. How do the sale metrics for these 2 periods before and after compare with the previous years in 2018 and 2019?
 
+-- We can use the same logic as the previous question but we must at the 'calendar_year' field.
+DROP TABLE IF EXISTS before_after_sales_years_limited;
+CREATE TEMP TABLE before_after_sales_years_limited AS (
+	SELECT
+		calendar_year,
+		-- Set the Week number to be either before of after baseline event.
+		CASE
+			WHEN week_number BETWEEN 21 AND 24 THEN 'Before'
+			WHEN week_number BETWEEN 25 AND 28 THEN 'After'
+			-- Any week more than 4 weeks prior or after baseline event is considered NULL
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	-- Remove the year filter
+	WHERE
+		week_number BETWEEN 21 AND 28
+	-- Add calendar_year to group by
+	GROUP BY
+		calendar_year,
+		time_period
+	ORDER BY 
+		calendar_year,
+		time_period DESC
+);
 
 
+WITH get_sales_diff AS (
+	SELECT
+		calendar_year,
+		time_period,
+		-- We must also partition by calendar_year
+		total_sales - LAG(total_sales) OVER (PARTITION BY calendar_year ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((LAG(total_sales) OVER (PARTITION BY calendar_year ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
+	FROM
+		before_after_sales_years_limited
+)
+SELECT
+	calendar_year,
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
 
-	
+/*
+
+calendar_year|sales_difference|sales_change|
+-------------+----------------+------------+
+         2018|        -4102105|        0.19|
+         2019|        -2336594|        0.10|
+         2020|        26884188|       -1.15|
+         
+*/  
+
+DROP TABLE IF EXISTS before_after_sales_years_full;
+CREATE TEMP TABLE before_after_sales_years_full AS (
+	SELECT
+		calendar_year,
+		-- Set the Week number to be either before of after baseline event.
+		CASE
+			WHEN week_number BETWEEN 13 AND 24 THEN 'Before'
+			WHEN week_number BETWEEN 25 AND 36 THEN 'After'
+			-- Any week more than 4 weeks prior or after baseline event is considered NULL
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	-- Remove the year filter
+	WHERE
+		week_number BETWEEN 13 AND 36
+	-- Add calendar_year to group by
+	GROUP BY
+		calendar_year,
+		time_period
+	ORDER BY 
+		calendar_year,
+		time_period DESC
+);
 
 
+WITH get_sales_diff AS (
+	SELECT
+		calendar_year,
+		time_period,
+		-- We must also partition by calendar_year
+		total_sales - LAG(total_sales) OVER (PARTITION BY calendar_year ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((LAG(total_sales) OVER (PARTITION BY calendar_year ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
+	FROM
+		before_after_sales_years_full
+)
+SELECT
+	calendar_year,
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
 
+/*
+
+calendar_year|sales_difference|sales_change|
+-------------+----------------+------------+
+         2018|      -104256193|        1.63|
+         2019|        20740294|       -0.30|
+         2020|       152325394|       -2.14|
+
+*/
