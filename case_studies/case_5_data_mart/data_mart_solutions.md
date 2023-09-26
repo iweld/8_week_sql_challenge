@@ -497,36 +497,59 @@ week_number|
 -----------|
 25|
 
-#### 1. What is the total sales for the 4 weeks before and after 2020-06-15? What is the growth or reduction rate in actual values and percentage of sales? 
+**1.**  What is the total sales for the 4 weeks before and after 2020-06-15? What is the growth or reduction rate in actual values and percentage of sales?
 
-#####1a. What is the total sales for the 4 weeks before and after 2020-06-15? 
+<details>
+  <summary>Click to expand answer!</summary>
 
-````sql
-SELECT CASE
-		WHEN week_number BETWEEN 21 AND 24 THEN 'Before'
-		WHEN week_number BETWEEN 25 AND 28 THEN 'After'
-		ELSE null
-	END AS time_period,
-	sum(sales) AS total_sales
-FROM clean_weekly_sales
-WHERE calendar_year = '2020'
-GROUP BY time_period -- Remove null values from time_period
-HAVING (
+  ##### Answer
+  ```sql
+DROP TABLE IF EXISTS before_after_sales;
+CREATE TEMP TABLE before_after_sales AS (
+	SELECT
 		CASE
 			WHEN week_number BETWEEN 21 AND 24 THEN 'Before'
 			WHEN week_number BETWEEN 25 AND 28 THEN 'After'
-			ELSE null
-		END
-	) IS NOT NULL
-ORDER BY time_period DESC;
-````
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	WHERE
+		calendar_year = '2020'
+	AND
+		week_number BETWEEN 21 AND 28
+	GROUP BY 
+		time_period
+	ORDER BY 
+		time_period DESC
+);
+
+WITH get_sales_diff AS (
+	SELECT
+		time_period,
+		total_sales - LAG(total_sales) OVER (ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((total_sales::NUMERIC / LAG(total_sales) OVER (ORDER BY time_period)) - 1),2) AS sales_change
+	FROM
+		before_after_sales
+)
+SELECT
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
+  ```
+</details>
 
 **Results:**
 
-time_period|total_sales|
------------|-----------|
-Before     | 2345878357|
-After      | 2318994169|
+sales_difference|sales_change|
+----------------|------------|
+26884188|        1.16|
 
 #####1b. What is the growth or reduction rate in actual values and percentage of sales? 
 
