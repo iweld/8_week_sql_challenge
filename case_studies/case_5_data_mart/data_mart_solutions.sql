@@ -449,11 +449,13 @@ FROM
 WHERE 
 	week_day = '2020-06-15';
 	
--- Results:
+/*
 	
 week_number|
 -----------+
          25|
+         
+*/         
 
 
 -- 1. What is the total sales for the 4 weeks before and after 2020-06-15? What is the growth or reduction 
@@ -498,11 +500,13 @@ FROM
 WHERE
 	sales_difference IS NOT NULL;
         
--- Results:
+/*
 	
 sales_difference|sales_change|
 ----------------+------------+
         26884188|        1.16|
+        
+*/        
 
 -- 2. What about the entire 12 weeks before and after?
 
@@ -522,7 +526,7 @@ CREATE TEMP TABLE before_after_sales_full AS (
 	WHERE
 		calendar_year = '2020'
 	AND
-		week_number BETWEEN 36 AND 13
+		week_number BETWEEN 13 AND 36
 	GROUP BY 
 		time_period
 	ORDER BY 
@@ -535,7 +539,7 @@ WITH get_sales_diff AS (
 		total_sales - LAG(total_sales) OVER (ORDER BY time_period) AS sales_difference,
 		ROUND(100 * ((total_sales::NUMERIC / LAG(total_sales) OVER (ORDER BY time_period)) - 1),2) AS sales_change
 	FROM
-		before_after_sales
+		before_after_sales_full
 )
 SELECT
 	sales_difference,
@@ -545,7 +549,13 @@ FROM
 WHERE
 	sales_difference IS NOT NULL;
 
-
+/*
+	
+sales_difference|sales_change|
+----------------+------------+
+       152325394|        2.18|
+        
+*/   
 
 
 	

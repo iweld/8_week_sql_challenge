@@ -551,6 +551,59 @@ sales_difference|sales_change|
 ----------------|------------|
 26884188|        1.16|
 
-#####1b. What is the growth or reduction rate in actual values and percentage of sales? 
+**2.**  What about the entire 12 weeks before and after?
 
-❗ To be continued....
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+DROP TABLE IF EXISTS before_after_sales_full;
+CREATE TEMP TABLE before_after_sales_full AS (
+	SELECT
+		CASE
+			WHEN week_number BETWEEN 13 AND 24 THEN 'Before'
+			WHEN week_number BETWEEN 25 AND 36 THEN 'After'
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	WHERE
+		calendar_year = '2020'
+	AND
+		week_number BETWEEN 13 AND 36
+	GROUP BY 
+		time_period
+	ORDER BY 
+		time_period DESC
+);
+
+WITH get_sales_diff AS (
+	SELECT
+		time_period,
+		total_sales - LAG(total_sales) OVER (ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((total_sales::NUMERIC / LAG(total_sales) OVER (ORDER BY time_period)) - 1),2) AS sales_change
+	FROM
+		before_after_sales_full
+)
+SELECT
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
+  ```
+</details>
+
+**Results:**
+
+sales_difference|sales_change|
+----------------|------------|
+152325394|        2.18|
+
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:
