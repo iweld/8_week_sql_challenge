@@ -555,7 +555,11 @@ sales_difference|sales_change|
 ----------------+------------+
        152325394|        2.18|
         
-*/   
+*/
+
+-- 3. How do the sale metrics for these 2 periods before and after compare with the previous years in 2018 and 2019?
+
+
 
 
 	
