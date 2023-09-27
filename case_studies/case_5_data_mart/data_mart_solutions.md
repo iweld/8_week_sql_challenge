@@ -750,14 +750,17 @@ calendar_year|sales_difference|sales_change|
 - demographic
 - customer_type
 
+**1a.** By Region
 <details>
   <summary>Click to expand answer!</summary>
 
   ##### Answer
   ```sql
-DROP TABLE IF EXISTS before_after_sales_full;
-CREATE TEMP TABLE before_after_sales_full AS (
+DROP TABLE IF EXISTS before_after_sales_full_region;
+CREATE TEMP TABLE before_after_sales_full_region AS (
 	SELECT
+		calendar_year,
+		region,
 		CASE
 			WHEN week_number BETWEEN 13 AND 24 THEN 'Before'
 			WHEN week_number BETWEEN 25 AND 36 THEN 'After'
@@ -773,6 +776,8 @@ CREATE TEMP TABLE before_after_sales_full AS (
 	AND
 		week_number BETWEEN 13 AND 36
 	GROUP BY 
+		calendar_year,
+		region,
 		time_period
 	ORDER BY 
 		time_period DESC
@@ -780,13 +785,19 @@ CREATE TEMP TABLE before_after_sales_full AS (
 
 WITH get_sales_diff AS (
 	SELECT
+		calendar_year,
+		region,
+		total_sales,
 		time_period,
-		total_sales - LAG(total_sales) OVER (ORDER BY time_period) AS sales_difference,
-		ROUND(100 * ((LAG(total_sales) OVER (ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
+		total_sales - LAG(total_sales) OVER (PARTITION BY region ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((LAG(total_sales) OVER (PARTITION BY region ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
 	FROM
-		before_after_sales_full
+		before_after_sales_full_region
 )
 SELECT
+	calendar_year,
+	region,
+	total_sales,
 	sales_difference,
 	sales_change
 FROM
@@ -798,9 +809,145 @@ WHERE
 
 **Results:**
 
-sales_difference|sales_change|
-----------------|------------|
-152325394|       -2.14|
+calendar_year|region       |total_sales|sales_difference|sales_change|
+-------------|-------------|-----------|----------------|------------|
+2020|AFRICA       | 1709537105|         9146811|       -0.54|
+2020|ASIA         | 1637244466|        53436845|       -3.26|
+2020|CANADA       |  426438454|         8174013|       -1.92|
+2020|EUROPE       |  108886567|        -5152392|        4.73|
+2020|OCEANIA      | 2354116790|        71321100|       -3.03|
+2020|SOUTH AMERICA|  213036207|         4584174|       -2.15|
+2020|USA          |  677013558|        10814843|       -1.60|
+
+**1b.** By Platform
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+DROP TABLE IF EXISTS before_after_sales_full_platform;
+CREATE TEMP TABLE before_after_sales_full_platform AS (
+	SELECT
+		calendar_year,
+		platform,
+		CASE
+			WHEN week_number BETWEEN 13 AND 24 THEN 'Before'
+			WHEN week_number BETWEEN 25 AND 36 THEN 'After'
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	WHERE
+		calendar_year = '2020'
+	AND
+		week_number BETWEEN 13 AND 36
+	GROUP BY 
+		calendar_year,
+		platform,
+		time_period
+	ORDER BY 
+		time_period DESC
+);
+
+WITH get_sales_diff AS (
+	SELECT
+		calendar_year,
+		platform,
+		total_sales,
+		time_period,
+		total_sales - LAG(total_sales) OVER (PARTITION BY platform ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((LAG(total_sales) OVER (PARTITION BY platform ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
+	FROM
+		before_after_sales_full_platform
+)
+SELECT
+	calendar_year,
+	platform,
+	total_sales,
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
+  ```
+</details>
+
+**Results:**
+
+calendar_year|platform|total_sales|sales_difference|sales_change|
+-------------|--------|-----------|----------------|------------|
+2020|Retail  | 6906861113|       168083834|       -2.43|
+2020|Shopify |  219412034|       -15758440|        7.18|
+
+**1c.** By Age Band
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+DROP TABLE IF EXISTS before_after_sales_full_age_band;
+CREATE TEMP TABLE before_after_sales_full_age_band AS (
+	SELECT
+		calendar_year,
+		age_band,
+		CASE
+			WHEN week_number BETWEEN 13 AND 24 THEN 'Before'
+			WHEN week_number BETWEEN 25 AND 36 THEN 'After'
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	WHERE
+		calendar_year = '2020'
+	AND
+		week_number BETWEEN 13 AND 36
+	GROUP BY 
+		calendar_year,
+		age_band,
+		time_period
+	ORDER BY 
+		time_period DESC
+);
+
+WITH get_sales_diff AS (
+	SELECT
+		calendar_year,
+		age_band,
+		total_sales,
+		time_period,
+		total_sales - LAG(total_sales) OVER (PARTITION BY age_band ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((LAG(total_sales) OVER (PARTITION BY age_band ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
+	FROM
+		before_after_sales_full_age_band
+)
+SELECT
+	calendar_year,
+	age_band,
+	total_sales,
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
+  ```
+</details>
+
+**Results:**
+
+calendar_year|age_band    |total_sales|sales_difference|sales_change|
+-------------|------------|-----------|----------------|------------|
+2020|Middle Aged | 1164847640|        22994292|       -1.97|
+2020|Retirees    | 2395264515|        29549521|       -1.23|
+2020|unknown     | 2764354464|        92393021|       -3.34|
+2020|Young Adults|  801806528|         7388560|       -0.92|
 
 
 :exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:

@@ -13,9 +13,11 @@
   
 */
 
-/*
-	1. Data Cleansing Steps
-*/
+/****************************************************
+ 
+	Part A: Data Cleansing Steps
+
+****************************************************/
 
 -- Lets take a look at the first 10 records to see what we have.
 
@@ -115,9 +117,11 @@ week_day  |week_number|month_number|calendar_year|region|platform|segment|age_ba
 
 */
 
-/*
-	2. Data Exploration
-*/
+/****************************************************
+ 
+	Part B: Data Exploration
+
+****************************************************/
 
 -- 1. What day of the week is used for each week_date value?
 
@@ -428,10 +432,15 @@ calendar_year|platform|incorrect_avg_transaction_size|correct_avg_transaction_si
          2020|Retail  |           40.1362044817927171|                          36|
          2020|Shopify |          174.3964973730297723|                         179|
          
-*/         
+*/ 
+
+/****************************************************
+ 
+	Part C: Before & After Analysis
+
+****************************************************/
 
 /*
-	Before & After Analysis
 	
 	According to Danny, This technique is usually used when we inspect an important event and want to inspect the 
 	impact before and after a certain point in time.
@@ -440,6 +449,7 @@ calendar_year|platform|incorrect_avg_transaction_size|correct_avg_transaction_si
 		
 		- Start Accepting Mobile App payments
 		- Add/Remove service fees
+		- EPA/Government Rules and Mandates
 		- Pre/Post World Wide Events (Covid, 9-11, War...)
 	
 	For this example we are taking the week_date value of 2020-06-15 as the baseline week where the Data Mart sustainable 
@@ -464,8 +474,7 @@ week_number|
 -----------+
          25|
          
-*/         
-
+*/
 
 -- 1. What is the total sales for the 4 weeks before and after 2020-06-15? What is the growth or reduction 
 -- rate in actual values and percentage of sales? 
@@ -688,3 +697,332 @@ calendar_year|sales_difference|sales_change|
          2020|       152325394|       -2.14|
 
 */
+
+/****************************************************
+ 
+	Part D: Bonus Question
+
+****************************************************/
+
+/*
+ 
+Which areas of the business have the highest negative impact in sales metrics performance in 2020 for the 12 week before and after period?
+Provide one query for each.
+
+	* region
+	* platform
+	* age_band
+	* demographic
+	* customer_type
+
+*/
+
+-- By Region
+
+DROP TABLE IF EXISTS before_after_sales_full_region;
+CREATE TEMP TABLE before_after_sales_full_region AS (
+	SELECT
+		calendar_year,
+		region,
+		CASE
+			WHEN week_number BETWEEN 13 AND 24 THEN 'Before'
+			WHEN week_number BETWEEN 25 AND 36 THEN 'After'
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	WHERE
+		calendar_year = '2020'
+	AND
+		week_number BETWEEN 13 AND 36
+	GROUP BY 
+		calendar_year,
+		region,
+		time_period
+	ORDER BY 
+		time_period DESC
+);
+
+WITH get_sales_diff AS (
+	SELECT
+		calendar_year,
+		region,
+		total_sales,
+		time_period,
+		total_sales - LAG(total_sales) OVER (PARTITION BY region ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((LAG(total_sales) OVER (PARTITION BY region ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
+	FROM
+		before_after_sales_full_region
+)
+SELECT
+	calendar_year,
+	region,
+	total_sales,
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
+
+/*
+
+calendar_year|region       |total_sales|sales_difference|sales_change|
+-------------+-------------+-----------+----------------+------------+
+         2020|AFRICA       | 1709537105|         9146811|       -0.54|
+         2020|ASIA         | 1637244466|        53436845|       -3.26|
+         2020|CANADA       |  426438454|         8174013|       -1.92|
+         2020|EUROPE       |  108886567|        -5152392|        4.73|
+         2020|OCEANIA      | 2354116790|        71321100|       -3.03|
+         2020|SOUTH AMERICA|  213036207|         4584174|       -2.15|
+         2020|USA          |  677013558|        10814843|       -1.60|
+
+*/
+
+-- By Platform
+
+DROP TABLE IF EXISTS before_after_sales_full_platform;
+CREATE TEMP TABLE before_after_sales_full_platform AS (
+	SELECT
+		calendar_year,
+		platform,
+		CASE
+			WHEN week_number BETWEEN 13 AND 24 THEN 'Before'
+			WHEN week_number BETWEEN 25 AND 36 THEN 'After'
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	WHERE
+		calendar_year = '2020'
+	AND
+		week_number BETWEEN 13 AND 36
+	GROUP BY 
+		calendar_year,
+		platform,
+		time_period
+	ORDER BY 
+		time_period DESC
+);
+
+WITH get_sales_diff AS (
+	SELECT
+		calendar_year,
+		platform,
+		total_sales,
+		time_period,
+		total_sales - LAG(total_sales) OVER (PARTITION BY platform ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((LAG(total_sales) OVER (PARTITION BY platform ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
+	FROM
+		before_after_sales_full_platform
+)
+SELECT
+	calendar_year,
+	platform,
+	total_sales,
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
+
+/*
+
+calendar_year|platform|total_sales|sales_difference|sales_change|
+-------------+--------+-----------+----------------+------------+
+         2020|Retail  | 6906861113|       168083834|       -2.43|
+         2020|Shopify |  219412034|       -15758440|        7.18|
+
+*/
+
+-- By Age Band
+
+DROP TABLE IF EXISTS before_after_sales_full_age_band;
+CREATE TEMP TABLE before_after_sales_full_age_band AS (
+	SELECT
+		calendar_year,
+		age_band,
+		CASE
+			WHEN week_number BETWEEN 13 AND 24 THEN 'Before'
+			WHEN week_number BETWEEN 25 AND 36 THEN 'After'
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	WHERE
+		calendar_year = '2020'
+	AND
+		week_number BETWEEN 13 AND 36
+	GROUP BY 
+		calendar_year,
+		age_band,
+		time_period
+	ORDER BY 
+		time_period DESC
+);
+
+WITH get_sales_diff AS (
+	SELECT
+		calendar_year,
+		age_band,
+		total_sales,
+		time_period,
+		total_sales - LAG(total_sales) OVER (PARTITION BY age_band ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((LAG(total_sales) OVER (PARTITION BY age_band ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
+	FROM
+		before_after_sales_full_age_band
+)
+SELECT
+	calendar_year,
+	age_band,
+	total_sales,
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
+
+/*
+
+calendar_year|age_band    |total_sales|sales_difference|sales_change|
+-------------+------------+-----------+----------------+------------+
+         2020|Middle Aged | 1164847640|        22994292|       -1.97|
+         2020|Retirees    | 2395264515|        29549521|       -1.23|
+         2020|unknown     | 2764354464|        92393021|       -3.34|
+         2020|Young Adults|  801806528|         7388560|       -0.92|
+
+*/
+
+-- By Demographics
+
+DROP TABLE IF EXISTS before_after_sales_full_demographics;
+CREATE TEMP TABLE before_after_sales_full_demographics AS (
+	SELECT
+		calendar_year,
+		demographics,
+		CASE
+			WHEN week_number BETWEEN 13 AND 24 THEN 'Before'
+			WHEN week_number BETWEEN 25 AND 36 THEN 'After'
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	WHERE
+		calendar_year = '2020'
+	AND
+		week_number BETWEEN 13 AND 36
+	GROUP BY 
+		calendar_year,
+		demographics,
+		time_period
+	ORDER BY 
+		time_period DESC
+);
+
+WITH get_sales_diff AS (
+	SELECT
+		calendar_year,
+		demographics,
+		total_sales,
+		time_period,
+		total_sales - LAG(total_sales) OVER (PARTITION BY demographics ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((LAG(total_sales) OVER (PARTITION BY demographics ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
+	FROM
+		before_after_sales_full_demographics
+)
+SELECT
+	calendar_year,
+	demographics,
+	total_sales,
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
+
+/*
+
+calendar_year|demographics|total_sales|sales_difference|sales_change|
+-------------+------------+-----------+----------------+------------+
+         2020|Couples     | 2033589643|        17612358|       -0.87|
+         2020|Families    | 2328329040|        42320015|       -1.82|
+         2020|unknown     | 2764354464|        92393021|       -3.34|
+
+*/
+
+-- By Customer Type
+
+DROP TABLE IF EXISTS before_after_sales_full_customer_type;
+CREATE TEMP TABLE before_after_sales_full_customer_type AS (
+	SELECT
+		calendar_year,
+		customer_type,
+		CASE
+			WHEN week_number BETWEEN 13 AND 24 THEN 'Before'
+			WHEN week_number BETWEEN 25 AND 36 THEN 'After'
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	WHERE
+		calendar_year = '2020'
+	AND
+		week_number BETWEEN 13 AND 36
+	GROUP BY 
+		calendar_year,
+		customer_type,
+		time_period
+	ORDER BY 
+		time_period DESC
+);
+
+WITH get_sales_diff AS (
+	SELECT
+		calendar_year,
+		customer_type,
+		total_sales,
+		time_period,
+		total_sales - LAG(total_sales) OVER (PARTITION BY customer_type ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((LAG(total_sales) OVER (PARTITION BY customer_type ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
+	FROM
+		before_after_sales_full_customer_type
+)
+SELECT
+	calendar_year,
+	customer_type,
+	total_sales,
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
+
+/*
+
+calendar_year|customer_type|total_sales|sales_difference|sales_change|
+-------------+-------------+-----------+----------------+------------+
+         2020|Existing     | 3690116427|        83872973|       -2.27|
+         2020|Guest        | 2573436301|        77202666|       -3.00|
+         2020|New          |  862720419|        -8750245|        1.01|
+
+*/
+
