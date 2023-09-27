@@ -141,7 +141,7 @@ WITH RECURSIVE week_count AS (
 		1 AS week_num
 	UNION ALL
 	SELECT 
-		week_num | 1
+		week_num + 1
 	FROM 
 		week_count
 	WHERE 

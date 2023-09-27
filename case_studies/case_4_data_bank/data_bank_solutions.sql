@@ -396,7 +396,7 @@ SELECT
 	-- If there are no transaction for the month, substitute with 0
 	COALESCE(t2.transaction_amount, 0) AS balance_activity,
 	-- Keep a running total of month end deposits
-	sum(transaction_amount) OVER (
+	SUM(transaction_amount) OVER (
 		PARTITION BY t1.customer_id
 		ORDER BY t1.generated_month) AS month_end_balance
 FROM
