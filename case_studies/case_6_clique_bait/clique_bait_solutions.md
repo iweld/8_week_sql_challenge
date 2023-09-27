@@ -193,77 +193,115 @@ purchase_percentage|
 
   ##### Answer
   ```sql
+WITH get_counts AS (
+	SELECT
+		visit_id,
+		-- Flag as visit_id having visited checkout page and had page view event.
+		SUM(
+			CASE
+				WHEN page_id = 12 AND event_type = 1 THEN 1
+				ELSE 0
+			END	
+		) AS checked_out,
+		-- Flag as visit_id having made a purchase.
+		SUM(
+			CASE
+				WHEN event_type = 3 THEN 1
+				ELSE 0
+			END	
+		) AS purchased
+	FROM
+		clique_bait.events
+	GROUP BY
+		visit_id
+)
 SELECT
-	ROUND(100 * SUM(
-				CASE 
-					WHEN event_type = 3 THEN 1
-					ELSE 0
-				END)::NUMERIC 
-			/ COUNT(DISTINCT visit_id), 2) AS purchase_percentage
-FROM 
-	clique_bait.events;
+	-- Subtract percentage that did visit and purchase from 100%
+	ROUND(100 * (1 - SUM(purchased)::NUMERIC / SUM(checked_out)), 2) AS visit_percentage
+FROM
+	get_counts;
   ```
 </details>
 
 **Results:**
 
-purchase_percentage|
--------------------|
-49.86|
+visit_percentage|
+----------------|
+15.50|
 
-#### 7. What are the top 3 pages by number of views?
+**7.**  What are the top 3 pages by number of views?
 
-````sql
-SELECT e.page_id,
-	ph.page_name,
-	count(e.page_id) AS n_page
-FROM clique_bait.events AS e
-	JOIN clique_bait.page_hierarchy AS ph ON e.page_id = ph.page_id
-WHERE e.event_type = 1
-GROUP BY e.page_id,
-	ph.page_name
-ORDER BY n_page DESC
-LIMIT 3;
-````
+<details>
+  <summary>Click to expand answer!</summary>
 
-**Results:**
-
-page_id|page_name   |n_page|
--------|------------|------|
-2|All Products|  3174|
-12|Checkout    |  2103|
-1|Home Page   |  1782|
-
-#### 8.  Which age_band and demographic values contribute the most to Retail sales?
-
-````sql
-SELECT ph.product_category,
-	sum(
-		CASE
-			WHEN e.event_type = 1 THEN 1
-			ELSE 0
-		END
-	) AS page_views,
-	sum(
-		CASE
-			WHEN e.event_type = 2 THEN 1
-			ELSE 0
-		END
-	) AS add_to_cart
-FROM clique_bait.page_hierarchy AS ph
-	JOIN clique_bait.events AS e ON e.page_id = ph.page_id
-WHERE ph.product_category IS NOT null
-GROUP BY ph.product_category
-ORDER BY page_views DESC;
-````
+  ##### Answer
+  ```sql
+SELECT
+	t1.page_id,
+	t2.page_name,
+	COUNT(t1.page_id) AS page_views
+FROM
+	clique_bait.events AS t1
+JOIN
+	clique_bait.page_hierarchy AS t2
+ON
+	t1.page_id = t2.page_id
+WHERE 
+	t1.event_type = 1
+GROUP BY
+	t1.page_id,
+	t2.page_name
+ORDER BY
+	page_views DESC
+LIMIT 
+	3;
+  ```
+</details>
 
 **Results:**
 
-product_category|page_views|add_to_cart|
-----------------|----------|-----------|
-Shellfish       |      6204|       3792|
-Fish            |      4633|       2789|
-Luxury          |      3032|       1870|
+page_id|page_name   |page_views|
+-------|------------|----------|
+2|All Products|      3174|
+12|Checkout    |      2103|
+1|Home Page   |      1782|
+
+**8.**  What is the number of views and cart adds for each product category?
+
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT
+	t1.page_id,
+	t2.page_name,
+	COUNT(t1.page_id) AS page_views
+FROM
+	clique_bait.events AS t1
+JOIN
+	clique_bait.page_hierarchy AS t2
+ON
+	t1.page_id = t2.page_id
+WHERE 
+	t1.event_type = 1
+GROUP BY
+	t1.page_id,
+	t2.page_name
+ORDER BY
+	page_views DESC
+LIMIT 
+	3;
+  ```
+</details>
+
+**Results:**
+
+page_id|page_name   |page_views|
+-------|------------|----------|
+2|All Products|      3174|
+12|Checkout    |      2103|
+1|Home Page   |      1782|
 
 #### 9. What are the top 3 products by purchases?
 

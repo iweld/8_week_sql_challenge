@@ -171,35 +171,31 @@ purchase_percentage|
 	
 -- 6. What is the percentage of visits which view the checkout page but do not have a purchase event?
  
-WITH get_counts AS              
-	(SELECT
+WITH get_counts AS (
+	SELECT
 		visit_id,
-		-- flag as visit_id having visited checkout page and had page view event.
-		sum(
+		-- Flag as visit_id having visited checkout page and had page view event.
+		SUM(
 			CASE
-				WHEN page_id = 12 AND event_type = 1 
-					THEN 1
-				ELSE
-					0
+				WHEN page_id = 12 AND event_type = 1 THEN 1
+				ELSE 0
 			END	
 		) AS checked_out,
-		-- flag as visit_id having made a purchase.
-		sum(
+		-- Flag as visit_id having made a purchase.
+		SUM(
 			CASE
-				WHEN event_type = 3 
-					THEN 1
-				ELSE
-					0
+				WHEN event_type = 3 THEN 1
+				ELSE 0
 			END	
 		) AS purchased
 	FROM
 		clique_bait.events
 	GROUP BY
-		visit_id)
-	
+		visit_id
+)
 SELECT
 	-- Subtract percentage that did visit and purchase from 100%
-	round(100 * (1 - sum(purchased)::numeric / sum(checked_out)), 2) AS visit_percentage
+	ROUND(100 * (1 - SUM(purchased)::NUMERIC / SUM(checked_out)), 2) AS visit_percentage
 FROM
 	get_counts;
 
@@ -212,31 +208,34 @@ visit_percentage|
 -- 7. What are the top 3 pages by number of views?
            
 SELECT
-	e.page_id,
-	ph.page_name,
-	count(e.page_id) AS n_page
+	t1.page_id,
+	t2.page_name,
+	COUNT(t1.page_id) AS page_views
 FROM
-	clique_bait.events AS e
+	clique_bait.events AS t1
 JOIN
-	clique_bait.page_hierarchy AS ph
+	clique_bait.page_hierarchy AS t2
 ON
-	e.page_id = ph.page_id
-WHERE e.event_type = 1
+	t1.page_id = t2.page_id
+WHERE 
+	t1.event_type = 1
 GROUP BY
-	e.page_id,
-	ph.page_name
+	t1.page_id,
+	t2.page_name
 ORDER BY
-	n_page DESC
+	page_views DESC
 LIMIT 
 	3;
 	
--- Results:
+/*
 
-page_id|page_name   |n_page|
--------+------------+------+
-      2|All Products|  3174|
-     12|Checkout    |  2103|
-      1|Home Page   |  1782|
+page_id|page_name   |page_views|
+-------+------------+----------+
+      2|All Products|      3174|
+     12|Checkout    |      2103|
+      1|Home Page   |      1782|
+      
+*/      
       
 --  8.  Which age_band and demographic values contribute the most to Retail sales?
       
