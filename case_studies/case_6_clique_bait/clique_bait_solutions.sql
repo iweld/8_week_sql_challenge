@@ -123,20 +123,22 @@ visited_month|month_name|total_visits|
 -- 4. What is the number of events for each event type?         
 	
 SELECT
-	e.event_type,
-	ei.event_name,
-	count(e.event_type) AS n_events
+	t1.event_type,
+	t2.event_name,
+	COUNT(t1.event_type) AS number_of_events
 FROM
-	clique_bait.events AS e
-JOIN clique_bait.event_identifier AS ei
-ON e.event_type = ei.event_type
+	clique_bait.events AS t1
+JOIN 
+	clique_bait.event_identifier AS t2
+ON 
+	t1.event_type = t2.event_type
 GROUP BY
-	e.event_type,
-	ei.event_name
+	t1.event_type,
+	t2.event_name
 ORDER BY 
-	e.event_type;
+	t1.event_type;
 	
--- Results:
+/*
 	
 event_type|event_name   |n_events|
 ----------+-------------+--------+
@@ -146,17 +148,17 @@ event_type|event_name   |n_events|
          4|Ad Impression|     876|
          5|Ad Click     |     702|
 	
+*/
+
 -- 5. What is the percentage of visits which have a purchase event?
 
 SELECT
-	round(
-		100 * 
-			sum(
+	ROUND(100 * SUM(
 				CASE 
 					WHEN event_type = 3 THEN 1
 					ELSE 0
-				end)::numeric 
-			/ count(DISTINCT visit_id), 2) AS purchase_percentage
+				END)::NUMERIC 
+			/ COUNT(DISTINCT visit_id), 2) AS purchase_percentage
 FROM 
 	clique_bait.events;
 	

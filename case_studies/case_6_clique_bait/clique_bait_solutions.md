@@ -133,99 +133,83 @@ visited_month|month_name|total_visits|
 
   ##### Answer
   ```sql
-WITH get_all_visits AS (
-	SELECT DISTINCT 
-		cookie_id,
-		event_time,
-		COUNT(DISTINCT visit_id) AS n_visits,
-		EXTRACT('month' FROM event_time) AS visited_month
-	FROM 
-		clique_bait.events
-	GROUP BY 
-		cookie_id,
-		visited_month,
-		event_time
-)
 SELECT
-	visited_month,
-	TO_CHAR(TO_DATE(visited_month::TEXT, 'MM'), 'Month') AS month_name,
-	SUM(n_visits) AS total_visits
+	t1.event_type,
+	t2.event_name,
+	COUNT(t1.event_type) AS number_of_events
 FROM
-	get_all_visits
-GROUP BY 
-	visited_month
+	clique_bait.events AS t1
+JOIN 
+	clique_bait.event_identifier AS t2
+ON 
+	t1.event_type = t2.event_type
+GROUP BY
+	t1.event_type,
+	t2.event_name
 ORDER BY 
-	visited_month;
+	t1.event_type;
   ```
 </details>
 
 **Results:**
 
-visited_month|month_name|total_visits|
--------------|----------|------------|
-1|January   |        8112|
-2|February  |       13645|
-3|March     |        8255|
-4|April     |        2311|
-5|May       |         411|
+event_type|event_name   |n_events|
+----------|-------------|--------|
+1|Page View    |   20928|
+2|Add to Cart  |    8451|
+3|Purchase     |    1777|
+4|Ad Impression|     876|
+5|Ad Click     |     702|
 
-#### 5. What is the percentage of visits which have a purchase event?
+**5.**  What is the percentage of visits which have a purchase event?
 
-````sql
-SELECT round(
-		100 * sum(
-			CASE
-				WHEN event_type = 3 THEN 1
-				ELSE 0
-			end
-		)::numeric / count(DISTINCT visit_id),
-		2
-	) AS purchase_percentage
-FROM clique_bait.events;
-````
+<details>
+  <summary>Click to expand answer!</summary>
 
-**Results:** 
+  ##### Answer
+  ```sql
+SELECT
+	ROUND(100 * SUM(
+				CASE 
+					WHEN event_type = 3 THEN 1
+					ELSE 0
+				END)::NUMERIC 
+			/ COUNT(DISTINCT visit_id), 2) AS purchase_percentage
+FROM 
+	clique_bait.events;
+  ```
+</details>
+
+**Results:**
 
 purchase_percentage|
 -------------------|
 49.86|
 
-#### 6. What is the percentage of visits which view the checkout page but do not have a purchase event?
+**6.**  What is the percentage of visits which view the checkout page but do not have a purchase event?
 
-````sql
-WITH get_counts AS (
-	SELECT visit_id,
-		-- flag as visit_id having visited checkout page and had page view event.
-		sum(
-			CASE
-				WHEN page_id = 12
-				AND event_type = 1 THEN 1
-				ELSE 0
-			END
-		) AS checked_out,
-		-- flag as visit_id having made a purchase.
-		sum(
-			CASE
-				WHEN event_type = 3 THEN 1
-				ELSE 0
-			END
-		) AS purchased
-	FROM clique_bait.events
-	GROUP BY visit_id
-)
-SELECT -- Subtract percentage that did visit and purchase from 100%
-	round(
-		100 * (1 - sum(purchased)::numeric / sum(checked_out)),
-		2
-	) AS visit_percentage
-FROM get_counts;
-````
+<details>
+  <summary>Click to expand answer!</summary>
 
-**Results:** : 
+  ##### Answer
+  ```sql
+SELECT
+	ROUND(100 * SUM(
+				CASE 
+					WHEN event_type = 3 THEN 1
+					ELSE 0
+				END)::NUMERIC 
+			/ COUNT(DISTINCT visit_id), 2) AS purchase_percentage
+FROM 
+	clique_bait.events;
+  ```
+</details>
 
-visit_percentage|
-----------------|
-15.50|
+**Results:**
+
+purchase_percentage|
+-------------------|
+49.86|
 
 #### 7. What are the top 3 pages by number of views?
 
