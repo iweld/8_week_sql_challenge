@@ -949,5 +949,135 @@ calendar_year|age_band    |total_sales|sales_difference|sales_change|
 2020|unknown     | 2764354464|        92393021|       -3.34|
 2020|Young Adults|  801806528|         7388560|       -0.92|
 
+**1d.** By Demographics
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+DROP TABLE IF EXISTS before_after_sales_full_demographics;
+CREATE TEMP TABLE before_after_sales_full_demographics AS (
+	SELECT
+		calendar_year,
+		demographics,
+		CASE
+			WHEN week_number BETWEEN 13 AND 24 THEN 'Before'
+			WHEN week_number BETWEEN 25 AND 36 THEN 'After'
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	WHERE
+		calendar_year = '2020'
+	AND
+		week_number BETWEEN 13 AND 36
+	GROUP BY 
+		calendar_year,
+		demographics,
+		time_period
+	ORDER BY 
+		time_period DESC
+);
+
+WITH get_sales_diff AS (
+	SELECT
+		calendar_year,
+		demographics,
+		total_sales,
+		time_period,
+		total_sales - LAG(total_sales) OVER (PARTITION BY demographics ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((LAG(total_sales) OVER (PARTITION BY demographics ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
+	FROM
+		before_after_sales_full_demographics
+)
+SELECT
+	calendar_year,
+	demographics,
+	total_sales,
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
+  ```
+</details>
+
+**Results:**
+
+calendar_year|demographics|total_sales|sales_difference|sales_change|
+-------------|------------|-----------|----------------|------------|
+2020|Couples     | 2033589643|        17612358|       -0.87|
+2020|Families    | 2328329040|        42320015|       -1.82|
+2020|unknown     | 2764354464|        92393021|       -3.34|
+
+**1e.** By Customer Type
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+DROP TABLE IF EXISTS before_after_sales_full_customer_type;
+CREATE TEMP TABLE before_after_sales_full_customer_type AS (
+	SELECT
+		calendar_year,
+		customer_type,
+		CASE
+			WHEN week_number BETWEEN 13 AND 24 THEN 'Before'
+			WHEN week_number BETWEEN 25 AND 36 THEN 'After'
+			ELSE NULL
+		END AS time_period,
+		SUM(sales) AS total_sales,
+		SUM(transactions) AS total_transactions,
+		SUM(sales) / SUM(transactions) AS avg_transaction_size
+	FROM
+		clean_weekly_sales
+	WHERE
+		calendar_year = '2020'
+	AND
+		week_number BETWEEN 13 AND 36
+	GROUP BY 
+		calendar_year,
+		customer_type,
+		time_period
+	ORDER BY 
+		time_period DESC
+);
+
+WITH get_sales_diff AS (
+	SELECT
+		calendar_year,
+		customer_type,
+		total_sales,
+		time_period,
+		total_sales - LAG(total_sales) OVER (PARTITION BY customer_type ORDER BY time_period) AS sales_difference,
+		ROUND(100 * ((LAG(total_sales) OVER (PARTITION BY customer_type ORDER BY time_period) / total_sales::NUMERIC) - 1),2) AS sales_change
+	FROM
+		before_after_sales_full_customer_type
+)
+SELECT
+	calendar_year,
+	customer_type,
+	total_sales,
+	sales_difference,
+	sales_change
+FROM
+	get_sales_diff
+WHERE
+	sales_difference IS NOT NULL;
+  ```
+</details>
+
+**Results:**
+
+calendar_year|customer_type|total_sales|sales_difference|sales_change|
+-------------|-------------|-----------|----------------|------------|
+2020|Existing     | 3690116427|        83872973|       -2.27|
+2020|Guest        | 2573436301|        77202666|       -3.00|
+2020|New          |  862720419|        -8750245|        1.01|
+
 
 :exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:
