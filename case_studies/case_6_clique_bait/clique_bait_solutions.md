@@ -126,7 +126,7 @@ visited_month|month_name|total_visits|
 5|May       |         411|
 
 
-**4.**  What is the unique number of visits by all users per month?
+**4.**  What is the number of events for each event type? 
 
 <details>
   <summary>Click to expand answer!</summary>
