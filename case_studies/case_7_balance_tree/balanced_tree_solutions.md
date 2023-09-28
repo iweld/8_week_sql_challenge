@@ -196,87 +196,107 @@ Teal Button Up Shirt - Mens     |             36460|             4397.60|
 
 #### Part B: Transaction Analysis
 
-#### 1. How many unique transactions were there?
+**1.**  How many unique transactions were there?
 
-````sql
-SELECT count(DISTINCT txn_id) AS unique_transactions
-FROM balanced_tree.sales;
-````
+<details>
+  <summary>Click to expand answer!</summary>
 
-**Results:** 
+  ##### Answer
+  ```sql
+SELECT
+	COUNT(DISTINCT txn_id) AS unique_transactions
+FROM
+	balanced_tree.sales;
+  ```
+</details>
+
+**Results:**
 
 unique_transactions|
 -------------------|
 2500|
 
-#### 2. What is the average unique products purchased in each transaction? I believe this is another oddly worded question.  I interpret this question to ask "What is the average NUMBER OF unique items purchased per transaction?"
+**2.**  What is the average unique products purchased in each transaction?  I believe this is another oddly worded question.  I interpret this question to ask "What is the average NUMBER/COUNT OF unique items purchased per transaction?"
 
-````sql
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
 WITH get_item_count AS (
 	SELECT
-		count(DISTINCT s.prod_id) unique_item
+		COUNT(DISTINCT t1.prod_id) unique_item
 	FROM
-		balanced_tree.sales AS s
+		balanced_tree.sales AS t1
 	GROUP BY
-		s.txn_id
+		t1.txn_id
 )
 SELECT
-	round(avg(unique_item)) AS avg_number_of_items
+	ROUND(AVG(unique_item)) AS avg_number_of_items
 FROM
 	get_item_count;
-````
+  ```
+</details>
 
-**Results:** 
+**Results:**
 
 avg_number_of_items|
 -------------------|
 6|
 
-#### 3. What are the 25th, 50th and 75th percentile values for the revenue per transaction?
+**3.**  What are the 25th, 50th and 75th percentile values for the revenue per transaction?
 
-````sql
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
 WITH get_revenue AS (
-	SELECT txn_id,
-		round(
-			sum((price * qty) * (1 - discount::NUMERIC / 100)),
-			2
-		) AS revenue
-	FROM balanced_tree.sales
-	GROUP BY txn_id
+	SELECT
+		txn_id,
+		ROUND(SUM((price * qty) * (1 - discount::NUMERIC / 100)), 2) AS revenue
+	FROM
+		balanced_tree.sales
+	GROUP BY
+		txn_id
 )
-SELECT percentile_disc(0.25) WITHIN GROUP (
-		ORDER BY revenue
-	) AS "25th_percentile",
-	percentile_disc(0.5) WITHIN GROUP (
-		ORDER BY revenue
-	) AS "50th_percentile",
-	percentile_disc(0.75) WITHIN GROUP (
-		ORDER BY revenue
-	) AS "75th_percentile"
-FROM get_revenue;
-````
+SELECT
+	PERCENTILE_DISC(0.25) WITHIN GROUP (ORDER BY revenue) AS percentile_25,
+	PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY revenue) AS percentile_50,
+	PERCENTILE_DISC(0.75) WITHIN GROUP (ORDER BY revenue) AS percentile_75
+FROM
+	get_revenue;
+  ```
+</details>
 
-**Results:** : 
+**Results:**
 
-25th_percentile|50th_percentile|75th_percentile|
----------------|---------------|---------------|
-326.18|         441.00|         572.75|
+percentile_25|percentile_50|percentile_75|
+-------------|-------------|-------------|
+326.18|       441.00|       572.75|
 
-#### 4. What is the average discount value per transaction?
+**4.**  What is the average discount value per transaction?
 
-````sql
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
 WITH get_avg_discount AS (
-	SELECT txn_id,
-		round(
-			sum((price * qty) * (discount::NUMERIC / 100)),
-			2
-		) AS discount
-	FROM balanced_tree.sales
-	GROUP BY txn_id
+	SELECT
+		txn_id,
+		ROUND(SUM((price * qty) * (discount::NUMERIC / 100)), 2) AS discount
+	FROM
+		balanced_tree.sales
+	GROUP BY
+		txn_id
 )
-SELECT round(avg(discount), 2) avg_discount
-FROM get_avg_discount;
-````
+SELECT
+	ROUND(AVG(discount), 2) avg_discount
+FROM
+	get_avg_discount;
+  ```
+</details>
 
 **Results:**
 
@@ -284,33 +304,34 @@ avg_discount|
 ------------|
 62.49|
 
-#### 5. What is the percentage split of all transactions for members vs non-members?
+**5.**  What is the percentage split of all transactions for members vs non-members?
 
-````sql
-SELECT round(
-		100 * (
-			SELECT count(DISTINCT txn_id)
-			FROM balanced_tree.sales
-			WHERE member = 't'
-		)::numeric / count(DISTINCT txn_id),
-		2
-	) AS member_percentage,
-	round(
-		100 * (
-			SELECT count(DISTINCT txn_id)
-			FROM balanced_tree.sales
-			WHERE member = 'f'
-		)::numeric / count(DISTINCT txn_id),
-		2
-	) AS non_member_percentage
-FROM balanced_tree.sales;
-````
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH get_avg_discount AS (
+	SELECT
+		txn_id,
+		ROUND(SUM((price * qty) * (discount::NUMERIC / 100)), 2) AS discount
+	FROM
+		balanced_tree.sales
+	GROUP BY
+		txn_id
+)
+SELECT
+	ROUND(AVG(discount), 2) avg_discount
+FROM
+	get_avg_discount;
+  ```
+</details>
 
 **Results:**
 
-member_percentage|non_member_percentage|
------------------|---------------------|
-60.20|                39.80|
+avg_discount|
+------------|
+62.49|
 
 or
 
