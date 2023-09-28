@@ -869,3 +869,6 @@ f7c798  |      1| 2020-03-15|         9|        3|true         |Half Off - Treat
 1f1198  |      2| 2020-02-01|         1|        0|false        |Half Off - Treat Your Shellf(ish)|             0|        0|                                                                                     |
 3b5871  |      2| 2020-01-18|         9|        6|true         |25% Off - Living The Lux Life    |             1|        1|Salmon, Kingfish, Russian Caviar, Black Truffle, Lobster, Oyster                     |
 49d73d  |      2| 2020-02-16|        11|        9|true         |Half Off - Treat Your Shellf(ish)|             1|        1|Salmon, Kingfish, Tuna, Russian Caviar, Black Truffle, Abalone, Lobster, Crab, Oyster|
+
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:
