@@ -126,29 +126,33 @@ SELECT
 FROM 
 	balanced_tree.sales;
 
--- Results:
+/*
 
 total_discounts|
 ---------------+
       156229.14|
+      
+*/
        
 -- 3b. What is the total discount for EACH product?  I will include total item revenue with 
 -- this query.
        
 SELECT 
-	pd.product_name,
-	sum(s.price * s.qty) AS total_item_revenue,
-	round(sum((s.price * s.qty) * (s.discount::NUMERIC / 100)), 2) AS total_item_discounts
+	t2.product_name,
+	SUM(t1.price * t1.qty) AS total_item_revenue,
+	ROUND(SUM((t1.price * t1.qty) * (t1.discount::NUMERIC / 100)), 2) AS total_item_discounts
 FROM 
-	balanced_tree.sales AS s
+	balanced_tree.sales AS t1
 JOIN
-	balanced_tree.product_details AS pd ON pd.product_id = s.prod_id
+	balanced_tree.product_details AS t2 
+ON 
+	t2.product_id = t1.prod_id
 GROUP BY
-	pd.product_name
+	t2.product_name
 ORDER BY 
-	total_item_revenue desc; 
+	total_item_revenue DESC; 
 
--- Results:
+/*
 
 product_name                    |total_item_revenue|total_item_discounts|
 --------------------------------+------------------+--------------------+
@@ -164,6 +168,8 @@ White Striped Socks - Mens      |             62135|             7410.81|
 Navy Oversized Jeans - Womens   |             50128|             6135.61|
 Cream Relaxed Jeans - Womens    |             37070|             4463.40|
 Teal Button Up Shirt - Mens     |             36460|             4397.60|
+
+*/
 
 -- B.  Transaction Analysis
 
