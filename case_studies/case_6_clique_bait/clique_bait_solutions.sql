@@ -237,42 +237,44 @@ page_id|page_name   |page_views|
       
 */      
       
---  8.  Which age_band and demographic values contribute the most to Retail sales?
+--  8.  What is the number of views and cart adds for each product category?
       
 SELECT
-	ph.product_category,
-	sum(
+	t1.product_category,
+	SUM(
 		CASE
-			WHEN e.event_type = 1 THEN 1
+			WHEN t2.event_type = 1 THEN 1
 			ELSE 0
 		END	
 	) AS page_views,
-	sum(
+	SUM(
 		CASE
-			WHEN e.event_type = 2 THEN 1
+			WHEN t2.event_type = 2 THEN 1
 			ELSE 0
 		END	
-	) AS add_to_cart
+	) AS added_to_cart
 FROM
-	clique_bait.page_hierarchy AS ph
+	clique_bait.page_hierarchy AS t1
 JOIN 
-	clique_bait.events AS e
+	clique_bait.events AS t2
 ON
-	e.page_id = ph.page_id
+	t2.page_id = t1.page_id
 WHERE
-	ph.product_category IS NOT null
+	t1.product_category IS NOT NULL
 GROUP BY
-	ph.product_category
+	t1.product_category
 ORDER BY 
 	page_views DESC;
 	
--- Results:
+/*
 	
-product_category|page_views|add_to_cart|
-----------------+----------+-----------+
-Shellfish       |      6204|       3792|
-Fish            |      4633|       2789|
-Luxury          |      3032|       1870|
+product_category|page_views|added_to_cart|
+----------------+----------+-------------+
+Shellfish       |      6204|         3792|
+Fish            |      4633|         2789|
+Luxury          |      3032|         1870|
+
+*/
       
 -- 9. What are the top 3 products by purchases?
 
@@ -285,31 +287,31 @@ WITH get_purchases AS (
 		event_type = 3
 )	
 SELECT
-	ph.page_name,
-	sum(
+	t1.page_name,
+	SUM(
 		CASE
-			WHEN e.event_type = 2 THEN 1
+			WHEN t2.event_type = 2 THEN 1
 			ELSE 0
 		END	
 	) AS top_3_purchased
 FROM
-	clique_bait.page_hierarchy AS ph
+	clique_bait.page_hierarchy AS t1
 JOIN 
-	clique_bait.events AS e
+	clique_bait.events AS t2
 ON
-	e.page_id = ph.page_id
+	t2.page_id = t1.page_id
 JOIN
-	get_purchases AS gp
+	get_purchases AS t3
 ON
-	e.visit_id = gp.visit_id 
+	t2.visit_id = t3.visit_id 
 WHERE
-	ph.product_category IS NOT NULL
+	t1.product_category IS NOT NULL
 AND
-	ph.page_name NOT in('1','2','12','13')
+	t1.page_name NOT IN('1','2','12','13')
 AND
-	gp.visit_id = e.visit_id
+	t3.visit_id = t2.visit_id
 GROUP BY
-	ph.page_name
+	t1.page_name
 ORDER BY
 	top_3_purchased DESC
 LIMIT 3;
@@ -321,10 +323,14 @@ page_name|top_3_purchased|
 Lobster  |            754|
 Oyster   |            726|
 Crab     |            719|
+
+/****************************************************
+ 
+	Part C: Product Funnel Analysis
+
+****************************************************/ 
 	
 /*
-	3. Product Funnel Analysis	
-
 	Using a single SQL query - create a new output table which has the following details:
 
 	How many times was each product viewed?
@@ -333,53 +339,56 @@ Crab     |            719|
 	How many times was each product purchased?	
 */	
 
+DROP TABLE IF EXISTS product_info;
 CREATE TEMP TABLE product_info AS 
 (
 	WITH product_viewed AS 
 	(
 		SELECT
-			ph.page_id,
-			sum(
+			t1.page_id,
+			SUM(
 				CASE
 					WHEN event_type = 1 THEN 1
 					ELSE 0
 				END
 			 ) AS n_page_views,
-			 sum(
+			 SUM(
 				CASE
 					WHEN event_type = 2 THEN 1
 					ELSE 0
 				END
 			 ) AS n_added_to_cart
 		FROM
-			page_hierarchy AS ph
+			page_hierarchy AS t1
 		JOIN
-			events AS e
-		ON ph.page_id = e.page_id
+			events AS t2
+		ON
+			t1.page_id = t2.page_id
 		WHERE
-			ph.product_id IS NOT NULL
+			t1.product_id IS NOT NULL
 		GROUP BY
-			ph.page_id
+			t1.page_id
 	),
 	product_purchased AS 
 	(		
 		SELECT
-			e.page_id,
-			sum(
+			t2.page_id,
+			SUM(
 				CASE
 					WHEN event_type = 2 THEN 1
 					ELSE 0
 				END
 			 ) AS purchased_from_cart
 		FROM
-			page_hierarchy AS ph
+			page_hierarchy AS t1
 		JOIN
-			events AS e
-		ON ph.page_id = e.page_id
+			events AS t2
+		ON
+			t1.page_id = t2.page_id
 		WHERE
-			ph.product_id IS NOT NULL
+			t1.product_id IS NOT NULL
 		AND
-			exists(
+			EXISTS(
 				SELECT
 					visit_id
 				FROM
@@ -387,32 +396,33 @@ CREATE TEMP TABLE product_info AS
 				WHERE
 					event_type = 3
 				AND
-					e.visit_id = visit_id
+					t2.visit_id = visit_id
 			)
 		AND
-			ph.page_id NOT IN (1,2,12,13)
+			t1.page_id NOT IN (1,2,12,13)
 		GROUP BY
-			e.page_id	
+			t2.page_id	
 	),
 	product_abandoned AS 
 	(		
 		SELECT
-			e.page_id,
-			sum(
+			t2.page_id,
+			SUM(
 				CASE
 					WHEN event_type = 2 THEN 1
 					ELSE 0
 				END
 			 ) AS abandoned_in_cart
 		FROM
-			page_hierarchy AS ph
+			page_hierarchy AS t1
 		JOIN
-			events AS e
-		ON ph.page_id = e.page_id
+			events AS t2
+		ON
+			t1.page_id = t2.page_id
 		WHERE
-			ph.product_id IS NOT NULL
+			t1.product_id IS NOT NULL
 		AND
-			NOT exists(
+			NOT EXISTS(
 				SELECT
 					visit_id
 				FROM
@@ -420,34 +430,41 @@ CREATE TEMP TABLE product_info AS
 				WHERE
 					event_type = 3
 				AND
-					e.visit_id = visit_id
+					t2.visit_id = visit_id
 			)
 		AND
-			ph.page_id NOT IN (1,2,12,13)
+			t1.page_id NOT IN (1,2,12,13)
 		GROUP BY
-			e.page_id	
+			t2.page_id	
 	)
 	SELECT
-		ph.page_id,
-		ph.page_name,
-		ph.product_category,
-		pv.n_page_views,
-		pv.n_added_to_cart,
-		pp.purchased_from_cart,
-		pa.abandoned_in_cart
+		t1.page_id,
+		t1.page_name,
+		t1.product_category,
+		t2.n_page_views,
+		t2.n_added_to_cart,
+		t3.purchased_from_cart,
+		t4.abandoned_in_cart
 	FROM
-		page_hierarchy AS ph
+		page_hierarchy AS t1
 	JOIN
-		product_viewed AS pv ON pv.page_id = ph.page_id
+		product_viewed AS t2 
+	ON
+		t2.page_id = t1.page_id
 	JOIN
-		product_purchased AS pp ON pp.page_id = ph.page_id
+		product_purchased AS t3 
+	ON 
+		t3.page_id = t1.page_id
 	JOIN
-		product_abandoned AS pa ON pa.page_id = ph.page_id
+		product_abandoned AS t4 
+	ON 
+		t4.page_id = t1.page_id
 );
 
-SELECT * FROM product_info;
+SELECT * 
+FROM product_info;
 
--- Results:
+/*
 
 page_id|page_name     |product_category|n_page_views|n_added_to_cart|purchased_from_cart|abandoned_in_cart|
 -------+--------------+----------------+------------+---------------+-------------------+-----------------+
@@ -460,6 +477,8 @@ page_id|page_name     |product_category|n_page_views|n_added_to_cart|purchased_f
       9|Lobster       |Shellfish       |        1547|            968|                754|              214|
      10|Crab          |Shellfish       |        1564|            949|                719|              230|
      11|Oyster        |Shellfish       |        1568|            943|                726|              217|
+     
+*/
 
 -- Additionally, create another table which further aggregates the data for the above points but this time for each 
 -- product category instead of individual products.
@@ -468,19 +487,20 @@ DROP TABLE IF EXISTS category_info;
 CREATE TEMP TABLE category_info AS (
 	SELECT
 		product_category,
-		sum(n_page_views) AS total_page_view,
-		sum(n_added_to_cart) AS total_added_to_cart,
-		sum(purchased_from_cart) AS total_purchased,
-		sum(abandoned_in_cart) AS total_abandoned
+		SUM(n_page_views) AS total_page_view,
+		SUM(n_added_to_cart) AS total_added_to_cart,
+		SUM(purchased_from_cart) AS total_purchased,
+		SUM(abandoned_in_cart) AS total_abandoned
 	FROM
 		product_info
 	GROUP BY
 		product_category
 );
 
-SELECT * FROM category_info;
+SELECT * 
+FROM category_info;
 	
--- Results:
+/*
 
 product_category|total_page_view|total_added_to_cart|total_purchased|total_abandoned|
 ----------------+---------------+-------------------+---------------+---------------+
@@ -488,11 +508,13 @@ Luxury          |           3032|               1870|           1404|           
 Shellfish       |           6204|               3792|           2898|            894|
 Fish            |           4633|               2789|           2115|            674|
 	
+*/
+
 -- Use your 2 new output tables - answer the following questions:	
 
 -- 1. Which product had the most views, cart adds and purchases?
 	
-WITH rankings AS 
+WITH product_rankings AS 
 (
 	SELECT
 		page_name,
@@ -506,7 +528,7 @@ SELECT
 	page_name,
 	'Most Viewed' AS product
 FROM
-	rankings
+	product_rankings
 WHERE 
 	most_page_views = 1
 UNION
@@ -514,7 +536,7 @@ SELECT
 	page_name,
 	'Most Added' AS product
 FROM
-	rankings
+	product_rankings
 WHERE 
 	most_cart_adds = 1
 UNION
@@ -522,79 +544,90 @@ SELECT
 	page_name,
 	'Most Purchased' AS product
 FROM
-	rankings
+	product_rankings
 WHERE 
 	most_purchased = 1;
 	
--- Results:
+/*
 
 page_name|product       |
 ---------+--------------+
 Oyster   |Most Viewed   |
 Lobster  |Most Added    |
 Lobster  |Most Purchased|
+
+*/
 	
 -- 2. Which product was most likely to be abandoned?
 
-SELECT
-	page_name
-from
-	(SELECT
+WITH most_likely_abandoned AS (
+	SELECT
 		page_name,
 		abandoned_in_cart
 	FROM
 		product_info
 	ORDER BY
 		abandoned_in_cart DESC
-	LIMIT 1) AS tmp;
+	LIMIT 1
+)
+SELECT
+	page_name AS product_name
+FROM
+	most_likely_abandoned;
 	
--- Results:
+/*
 
-page_name     |
+product_name  |
 --------------+
 Russian Caviar|
+
+*/
 
 -- Initially I read the question as "Which is the most abandoned product".  However, the question is
 -- asking which product is 'most likely' to be abandoned.  So we must check which item has the highest
 -- probability of being viewed and abandoned.
 
 SELECT
-	page_name,
+	page_name AS product,
 	-- Subtract difference from the largest purchased item
-	100 - round(100 * purchased_from_cart::NUMERIC / n_added_to_cart, 2) AS abandoned_ratio
+	100 - ROUND(100 * purchased_from_cart::NUMERIC / n_added_to_cart, 2) AS abandoned_ratio
 FROM
 	product_info
 ORDER BY 
 	abandoned_ratio DESC
 LIMIT 1;
 
--- Results:
+/*
 
-page_name     |abandoned_ratio|
+product       |abandoned_ratio|
 --------------+---------------+
 Russian Caviar|          26.32|
+
+*/
 	
 -- 3. Which product had the highest view to purchase percentage?
 
 SELECT
-	page_name,
-	round(100 * purchased_from_cart::NUMERIC / n_page_views, 2) AS purchased_views_ratio
+	page_name AS product,
+	ROUND(100 * purchased_from_cart::NUMERIC / n_page_views, 2) AS purchased_views_ratio
 FROM
 	product_info
 ORDER BY
 	purchased_views_ratio DESC
 LIMIT 1;
 
--- Results:
+/*
 
-page_name|purchased_views_ratio|
----------+---------------------+
-Lobster  |                48.74|
+product|purchased_views_ratio|
+-------+---------------------+
+Lobster|                48.74|
+
+*/
 	
 -- 4. What is the average conversion rate from view to cart add?	
 
 SELECT
-	round(avg(100 * n_added_to_cart::NUMERIC / n_page_views), 2) AS views_added_ratio
+	ROUND(AVG(100 * n_added_to_cart::NUMERIC / n_page_views), 2) AS views_added_ratio
 FROM
 	product_info;
 	
@@ -607,7 +640,7 @@ views_added_ratio|
 -- 5.  What is the average conversion rate from cart add to purchase?
             
 SELECT
-	round(avg(100 * purchased_from_cart::NUMERIC / n_added_to_cart), 2) AS added_purchased_ratio
+	ROUND(AVG(100 * purchased_from_cart::NUMERIC / n_added_to_cart), 2) AS added_purchased_ratio
 FROM
 	product_info;            
             
@@ -616,10 +649,14 @@ FROM
 added_purchased_ratio|
 ---------------------+
                 75.93|
-            
-/*
-	4. Campaigns Analysis	
+                
+/****************************************************
+ 
+	Part D: Campaigns Analysis
 
+****************************************************/                
+            
+/*	
 	Generate a table that has 1 single row for every unique visit_id record and has the following columns:
 		* user_id
 		* visit_id
@@ -640,12 +677,12 @@ CREATE TEMP TABLE campaign_analysis AS (
 			visit_id,
 			CASE
 				WHEN n_flag >= 1 THEN TRUE
-				ELSE false
+				ELSE FALSE
 			END  AS purchase_flag
-		from
+		FROM
 			(SELECT
 				visit_id,
-				sum(
+				SUM(
 					CASE
 						WHEN event_type = 3 THEN 1
 						ELSE 0
@@ -657,79 +694,87 @@ CREATE TEMP TABLE campaign_analysis AS (
 	),
 	get_cart_items AS (
 		SELECT 
-			e.visit_id,
-			string_agg(
-				ph.page_name,
-				', '
-				ORDER BY
-					sequence_number
-			) AS cart_items
+			t1.visit_id,
+			STRING_AGG(t2.page_name, ', ' ORDER BY sequence_number) AS cart_items
 		FROM
-			events AS e
+			events AS t1
 		JOIN
-			page_hierarchy AS ph ON ph.page_id = e.page_id
+			page_hierarchy AS t2 
+		ON 
+			t2.page_id = t1.page_id
 		WHERE
-			e.event_type = 2
+			t1.event_type = 2
 		GROUP BY
-			e.visit_id
+			t1.visit_id
 	)
 	SELECT
-		e.visit_id,
-		u.user_id,
-		min(u.start_date::date) AS visit_start,
-		sum(
+		t1.visit_id,
+		t2.user_id,
+		MIN(t2.start_date::DATE) AS visit_start,
+		SUM(
 			CASE
 				WHEN event_type = 1 THEN 1
 				ELSE 0
 			END 
 		) AS page_views,
-		sum(
+		SUM(
 			CASE
 				WHEN event_type = 2 THEN 1
 				ELSE 0
 			END 
 		) AS cart_adds,
-		pc.purchase_flag AS purchase_flag,
-		ci.campaign_name,
-		sum(
+		t3.purchase_flag AS purchase_flag,
+		t4.campaign_name,
+		SUM(
 			CASE
 				WHEN event_type = 4 THEN 1
 				ELSE 0
 			END 
 		) AS ad_impressions,
-		sum(
+		SUM(
 			CASE
 				WHEN event_type = 5 THEN 1
 				ELSE 0
 			END 
 		) AS ad_clicks,
 		CASE
-			WHEN gci.cart_items IS NULL THEN ''
-			ELSE gci.cart_items
+			WHEN t5.cart_items IS NULL THEN ''
+			ELSE t5.cart_items
 		END  AS cart_items
 	FROM
-		events AS e
+		events AS t1
 	JOIN
-		users AS u ON u.cookie_id = e.cookie_id
+		users AS t2 
+	ON 
+		t2.cookie_id = t1.cookie_id
 	JOIN 
-		purchase_check AS pc ON pc.visit_id = e.visit_id
+		purchase_check AS t3 
+	ON 
+		t3.visit_id = t1.visit_id
 	LEFT JOIN
-		campaign_identifier AS ci ON u.start_date BETWEEN ci.start_date AND ci.end_date
+		campaign_identifier AS t4 
+	ON 
+		t2.start_date BETWEEN t4.start_date AND t4.end_date
 	LEFT JOIN 
-		get_cart_items AS gci ON gci.visit_id = e.visit_id
+		get_cart_items AS t5 
+	ON 
+		t5.visit_id = t1.visit_id
 	GROUP BY 
-		e.visit_id,
-		u.user_id,
-		pc.purchase_flag,
-		ci.campaign_name,
-		gci.cart_items
+		t1.visit_id,
+		t2.user_id,
+		t3.purchase_flag,
+		t4.campaign_name,
+		t5.cart_items
 	ORDER BY
-		user_id
+		t2.user_id
 );
 
-SELECT * FROM campaign_analysis LIMIT 12;
-            
--- Results: (Showing only the first dozen)
+SELECT * 
+FROM campaign_analysis 
+LIMIT 12;
+
+/*
+(Showing only the first 12)
             
 visit_id|user_id|visit_start|page_views|cart_adds|purchase_flag|campaign_name                    |ad_impressions|ad_clicks|cart_items                                                                           |
 --------+-------+-----------+----------+---------+-------------+---------------------------------+--------------+---------+-------------------------------------------------------------------------------------+
@@ -746,7 +791,7 @@ f7c798  |      1| 2020-03-15|         9|        3|true         |Half Off - Treat
 3b5871  |      2| 2020-01-18|         9|        6|true         |25% Off - Living The Lux Life    |             1|        1|Salmon, Kingfish, Russian Caviar, Black Truffle, Lobster, Oyster                     |
 49d73d  |      2| 2020-02-16|        11|        9|true         |Half Off - Treat Your Shellf(ish)|             1|        1|Salmon, Kingfish, Tuna, Russian Caviar, Black Truffle, Abalone, Lobster, Crab, Oyster|            
             
-            
+*/            
             
             
             
