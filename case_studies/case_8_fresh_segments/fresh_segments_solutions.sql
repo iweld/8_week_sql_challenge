@@ -83,7 +83,7 @@ _month|_year |month_year|interest_id|composition|index_value|ranking|percentile_
 
 SELECT
 	month_year,
-	count(*) as month_year_count
+	COUNT(*) as month_year_count
 FROM
 	fresh_segments.interest_metrics
 GROUP BY
@@ -95,7 +95,7 @@ ORDER BY
 	
 month_year|month_year_count|
 ----------+----------------+
-          |            1194|
+[NULL]    |            1194|
 2018-07-01|             729|
 2018-08-01|             767|
 2018-09-01|             780|
@@ -127,26 +127,28 @@ month_year|month_year_count|
  * 4.  Remove missing values.
  * 
  * If the removal percentage if high, this could be unacceptable as it may produce unreliable results.
- * For this exercise, the null values will be removed as we are unable to accurately apply a date to the records.
+ * For this exercise, the NULL values will be removed as we are unable to accurately apply a date to the records.
  * 
  */
 
 -- Let's check the initial NULL count.
 
 SELECT
-	count(*) AS null_count
+	COUNT(*) AS null_count
 FROM
 	fresh_segments.interest_metrics
 WHERE
 	month_year IS NULL;
 
--- Results:
+/*
 
 null_count|
 ----------+
       1194|
+      
+*/      
 
--- Delete records with null values and recheck the count.
+-- Delete records with NULL values and recheck the count.
 
 DELETE
 FROM 
@@ -155,68 +157,74 @@ WHERE
 	month_year IS NULL;
 
 SELECT
-	count(*) AS null_count
+	COUNT(*) AS null_count
 FROM
 	fresh_segments.interest_metrics
 WHERE
 	month_year IS NULL;
 
--- Results:
+/*
 
 null_count|
 ----------+
          0|
+         
+*/       
 
 -- 4. How many interest_id values exist in the fresh_segments.interest_metrics table but not in the fresh_segments.interest_map table? What about the other way around?
          
-select         
-	(SELECT
-		count(interest_id) AS n_metrics_ids
+SELECT (
+	SELECT
+		COUNT(interest_id) AS n_metrics_ids
 	FROM
 		fresh_segments.interest_metrics
-	WHERE NOT EXISTS 
-	(
+	WHERE NOT EXISTS (
 		SELECT 
 			id 
 		FROM 
 			fresh_segments.interest_map
 		WHERE
-			fresh_segments.interest_metrics.interest_id::numeric = fresh_segments.interest_map.id	
-	)) AS not_in_map,	
-	(SELECT
-		count(id) AS n_map_ids
+			fresh_segments.interest_metrics.interest_id::NUMERIC = fresh_segments.interest_map.id) 
+	) AS not_in_map,	
+	(
+	SELECT
+		COUNT(id) AS n_map_ids
 	FROM
 		fresh_segments.interest_map
-	WHERE NOT EXISTS 
-	(
+	WHERE NOT EXISTS (
 		SELECT 
 			interest_id 
 		FROM 
 			fresh_segments.interest_metrics
 		WHERE
-			fresh_segments.interest_metrics.interest_id::numeric = fresh_segments.interest_map.id	
-	)) AS not_in_metric;
+			fresh_segments.interest_metrics.interest_id::NUMERIC  = fresh_segments.interest_map.id	
+		)
+	) AS not_in_metric;
 
--- Results:
+/*
 	
 not_in_map|not_in_metric|
 ----------+-------------+
          0|            7|
+       
+*/       
          
 -- 5. Summarise the id values in the fresh_segments.interest_map by its total record count in this table (check for duplicates/unique keys)
 
 -- 5a. What is the number of records?
 
 SELECT 
-	count(*) AS n_id
+	COUNT(*) AS record_count
 FROM
 	fresh_segments.interest_map;
 
--- Results:
+/*
 
-n_id|
-----+
-1209|
+record_count|
+------------+
+        1209|
+        
+*/       
 
 -- 5b. Check for difference in the number of unique id's?
 
@@ -224,25 +232,27 @@ WITH check_count AS
 (
 	SELECT 
 		id,
-		count(*) AS n_id
+		COUNT(*) AS id_check_count
 	FROM
 		fresh_segments.interest_map
 	GROUP BY 
 		id
 )
 SELECT
-	n_id,
-	count(*)
+	id_check_count,
+	COUNT(*) AS total_id
 FROM
 	check_count
 GROUP BY
-	n_id;
+	id_check_count;
 	
--- Results: (This verifies that the id's are unique)
-	
-n_id|count|
-----+-----+
-   1| 1209|
+/* (We use this technique that the id's are unique)
+
+id_check_count|total_id|
+--------------+--------+
+             1|    1209|
+             
+*/
    
 -- 6.  What sort of table join should we perform for our analysis and why? Check your logic by checking the rows where 
 -- interest_id = 21246 in your joined output and include all columns from fresh_segments.interest_metrics and all columns 
@@ -257,53 +267,53 @@ n_id|count|
  */	
 
 SELECT
-	m1.*,
+	t1.*,
 	interest_name,
 	interest_summary,
 	created_at,
 	last_modified
 FROM
-	fresh_segments.interest_metrics AS m1
+	fresh_segments.interest_metrics AS t1
 LEFT JOIN 
-	fresh_segments.interest_map AS m2
+	fresh_segments.interest_map AS t2
 ON
-	m1.interest_id::numeric = m2.id
+	t1.interest_id::NUMERIC = t2.id
 WHERE 
-	m1.interest_id = '21246';
+	t1.interest_id = '21246';
 
 -- Results:
 
-_month|_year|month_year|interest_id|composition|index_value|ranking|percentile_ranking|interest_name                   |interest_summary                                     |created_at             |last_modified          |
-------+-----+----------+-----------+-----------+-----------+-------+------------------+--------------------------------+-----------------------------------------------------+-----------------------+-----------------------+
-4     |2019 |2019-04-01|21246      |       1.58|       0.63|   1092|              0.64|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
-3     |2019 |2019-03-01|21246      |       1.75|       0.67|   1123|              1.14|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
-2     |2019 |2019-02-01|21246      |       1.84|       0.68|   1109|              1.07|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
-1     |2019 |2019-01-01|21246      |       2.05|       0.76|    954|              1.95|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
-12    |2018 |2018-12-01|21246      |       1.97|        0.7|    983|              1.21|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
-11    |2018 |2018-11-01|21246      |       2.25|       0.78|    908|              2.16|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
-10    |2018 |2018-10-01|21246      |       1.74|       0.58|    855|              0.23|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
-9     |2018 |2018-09-01|21246      |       2.06|       0.61|    774|              0.77|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
-8     |2018 |2018-08-01|21246      |       2.13|       0.59|    765|              0.26|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
-7     |2018 |2018-07-01|21246      |       2.26|       0.65|    722|              0.96|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
+_month|_year |month_year|interest_id|composition|index_value|ranking|percentile_ranking|interest_name                   |interest_summary                                     |created_at             |last_modified          |
+------+------+----------+-----------+-----------+-----------+-------+------------------+--------------------------------+-----------------------------------------------------+-----------------------+-----------------------+
+4     |2019  |2019-04-01|21246      |       1.58|       0.63|   1092|              0.64|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
+3     |2019  |2019-03-01|21246      |       1.75|       0.67|   1123|              1.14|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
+2     |2019  |2019-02-01|21246      |       1.84|       0.68|   1109|              1.07|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
+1     |2019  |2019-01-01|21246      |       2.05|       0.76|    954|              1.95|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
+12    |2018  |2018-12-01|21246      |       1.97|        0.7|    983|              1.21|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
+11    |2018  |2018-11-01|21246      |       2.25|       0.78|    908|              2.16|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
+10    |2018  |2018-10-01|21246      |       1.74|       0.58|    855|              0.23|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
+9     |2018  |2018-09-01|21246      |       2.06|       0.61|    774|              0.77|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
+8     |2018  |2018-08-01|21246      |       2.13|       0.59|    765|              0.26|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
+7     |2018  |2018-07-01|21246      |       2.26|       0.65|    722|              0.96|Readers of El Salvadoran Content|People reading news from El Salvadoran media sources.|2018-06-11 17:50:04.000|2018-06-11 17:50:04.000|
 
 -- 7. Are there any records in your joined table where the month_year value is before the created_at value from the fresh_segments.interest_map table? 
 
 WITH check_when_created AS (
 	SELECT
-		m1.*,
+		t1.*,
 		interest_name,
 		interest_summary,
 		created_at,
 		last_modified
 	FROM
-		fresh_segments.interest_metrics AS m1
+		fresh_segments.interest_metrics AS t1
 	LEFT JOIN 
-		fresh_segments.interest_map AS m2
+		fresh_segments.interest_map AS t2
 	ON
-		m1.interest_id::numeric = m2.id
+		t1.interest_id::NUMERIC = t2.id
 )
 SELECT
-	count(*) AS n_records
+	COUNT(*) AS number_of_records
 FROM
 	check_when_created
 WHERE
@@ -319,60 +329,101 @@ n_records|
 -- 7a. Do you think these values are valid and why?
 
 /*
- * These records are valid because when we adjusted the month_date column, we rolled it back to the start
- * of the month. As long as the month_year month is equal to or greater than created, the record is valid.
+ * The main concern is that when we have a field with the words 'created' or 'modified' we should be
+ * concerned of a slowly changing dimention.
+ * 
+ * Do we have any columns in our joined table that are less than the created_at column?
+ * 
+ * Yes, the previous query shows that we do have many records. However these records appear to be created
+ * monthly. Since we rolled the dates back to the beginning of the month, as long as the month_year month 
+ * is equal to or greater than created_at, the record should be considered valid.
+ * 
+ * This can be crossed referenced by comparing the created_at value with the month_year value. 
  *  
  */
+    
+WITH get_joined_tables AS (
+	SELECT
+	  t1.*,
+	  t2.interest_name,
+	  t2.interest_summary,
+	  t2.created_at,
+	  t2.last_modified
+	FROM 
+		fresh_segments.interest_metrics AS t1
+	JOIN 
+		fresh_segments.interest_map AS t2
+	ON 
+		t1.interest_id::int = t2.id
+	WHERE 
+		t1.month_year IS NOT NULL
+)
+SELECT
+  COUNT(*)
+FROM 
+	get_joined_tables
+WHERE 
+	month_year < DATE_TRUNC('mon', created_at);
 
--- B.  Interest Analysis
+/*
+
+count |
+------+
+     0|
+
+ */
+      
+
+/****************************************************
+ 
+	Part B: Interest Analysis
+
+****************************************************/
       
 -- 1.  Which interests have been present in all month_year dates in our dataset?
 
 WITH persistent_interests AS (
 	SELECT 
-		interest_id
+		interest_id,
+		COUNT(DISTINCT month_year) AS month_count
 	FROM
 		fresh_segments.interest_metrics
+	WHERE
+		interest_id IS NOT NULL
 	GROUP BY
 		interest_id
-	HAVING
-		count(DISTINCT month_year) = (
-			SELECT 
-				count(DISTINCT month_year)
-			FROM 
-				fresh_segments.interest_metrics
-		)
 )
 SELECT
-	count(*) AS n_interests
-FROM
-	persistent_interests;
-	
--- Results:
-	
-n_interests|
------------+
-        480|
-        
--- 1a. To see individual id's (limited to 5 for brevity)
-        
-SELECT
-	interest_id
+	month_count,
+	COUNT(*) AS number_of_interests
 FROM
 	persistent_interests
-ORDER BY
-		interest_id::numeric ASC
-LIMIT 5;
-
--- Results:
-		
-interest_id|
------------+
-4          |
-5          |
-6          |
-12         |
-15         |
+GROUP BY 
+	month_count
+ORDER BY 
+	month_count DESC;
+	
+/*
+	
+month_count|number_of_interests|
+-----------+-------------------+
+         14|                480|
+         13|                 82|
+         12|                 65|
+         11|                 94|
+         10|                 86|
+          9|                 95|
+          8|                 67|
+          7|                 90|
+          6|                 33|
+          5|                 38|
+          4|                 32|
+          3|                 15|
+          2|                 12|
+          1|                 13|
+          
+        
+*/
 
 -- 2. Using this same total_months measure - calculate the cumulative percentage of all records starting at 
 -- 14 months - which total_months value passes the 90% cumulative percentage value?
