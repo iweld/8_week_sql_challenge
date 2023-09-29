@@ -254,16 +254,16 @@ avg_number_of_items|
 WITH get_revenue AS (
 	SELECT
 		txn_id,
-		ROUND(SUM((price * qty) * (1 - discount::NUMERIC / 100)), 2) AS revenue
+		ROUND(SUM((price * qty)), 2) AS revenue
 	FROM
 		balanced_tree.sales
 	GROUP BY
 		txn_id
 )
 SELECT
-	PERCENTILE_DISC(0.25) WITHIN GROUP (ORDER BY revenue) AS percentile_25,
-	PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY revenue) AS percentile_50,
-	PERCENTILE_DISC(0.75) WITHIN GROUP (ORDER BY revenue) AS percentile_75
+	PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY revenue) AS percentile_25,
+	PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY revenue) AS percentile_50,
+	PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY revenue) AS percentile_75
 FROM
 	get_revenue;
   ```
@@ -311,58 +311,58 @@ avg_discount|
 
   ##### Answer
   ```sql
-WITH get_avg_discount AS (
-	SELECT
-		txn_id,
-		ROUND(SUM((price * qty) * (discount::NUMERIC / 100)), 2) AS discount
-	FROM
-		balanced_tree.sales
-	GROUP BY
-		txn_id
-)
 SELECT
-	ROUND(AVG(discount), 2) avg_discount
+	ROUND(100 * (SELECT COUNT(DISTINCT txn_id) FROM balanced_tree.sales WHERE member = 't')::NUMERIC / COUNT(DISTINCT txn_id)) AS member_percentage,
+	ROUND(100 * (SELECT COUNT(DISTINCT txn_id) FROM balanced_tree.sales WHERE member = 'f')::NUMERIC / COUNT(DISTINCT txn_id)) AS non_member_percentage
 FROM
-	get_avg_discount;
+	balanced_tree.sales;
   ```
 </details>
 
 **Results:**
 
-avg_discount|
-------------|
-62.49|
+member_percentage|non_member_percentage|
+-----------------|---------------------|
+60|                   40|
 
 or
 
-````sql
-SELECT member,
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT
+	member,
 	-- The OVER clause allows us to nest aggregate functions
-	round(
-		100 * (
-			count(DISTINCT txn_id) / sum(count(DISTINCT txn_id)) OVER()
-		),
-		2
-	) AS percentage_distribution
-FROM balanced_tree.sales
-GROUP BY MEMBER;
-````
+	ROUND(100 * (COUNT(DISTINCT txn_id) / SUM(COUNT(DISTINCT txn_id)) OVER())) AS percentage_distribution
+FROM
+	balanced_tree.sales
+GROUP BY
+	member;
+  ```
+</details>
 
 **Results:**
 
 member|percentage_distribution|
 ------|-----------------------|
-false |                  39.80|
-true  |                  60.20|
+false |                     40|
+true  |                     60|
 
-#### 6. What is the average revenue for member transactions and non-member transactions?
 
-````sql
+**6.**  What is the average revenue for member transactions and non-member transactions?
+
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
 WITH get_all_revenue AS (
 	SELECT
 		txn_id,
 		member,
-		round(sum((price * qty) * (1 - discount::NUMERIC / 100)), 2) AS revenue
+		ROUND(SUM((price * qty))) AS revenue
 	FROM
 		balanced_tree.sales
 	GROUP BY
@@ -374,33 +374,46 @@ SELECT
 		WHEN member = 't' THEN 'Member'
 		ELSE 'Non-Member'
 	END AS membership_status,
-	round(avg(revenue), 2) AS avg_revenue
-from
+	ROUND(AVG(revenue)::NUMERIC, 2) AS avg_revenue
+FROM
 	get_all_revenue
 GROUP BY
-	MEMBER;
-````
+	member;
+  ```
+</details>
 
 **Results:**
 
 membership_status|avg_revenue|
 -----------------|-----------|
-Non-Member       |     452.01|
-Member           |     454.14|
+Non-Member       |     515.04|
+Member           |     516.27|
 
-**C.  Product Analysis**
+#### Part C: Product Analysis
 
-#### 1. What are the top 3 products by total revenue before discount?
+**1.**  What are the top 3 products by total revenue before discount?
 
-````sql
-SELECT pd.product_name,
-	sum(s.price * s.qty) AS total_revenue
-FROM balanced_tree.sales AS s
-	JOIN balanced_tree.product_details AS pd ON pd.product_id = s.prod_id
-GROUP BY pd.product_name
-ORDER BY total_revenue DESC
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT
+	t2.product_name,
+	SUM(t1.price * t1.qty) AS total_revenue
+FROM
+	balanced_tree.sales AS t1
+JOIN
+	balanced_tree.product_details AS t2 
+ON
+	t2.product_id = t1.prod_id
+GROUP BY
+	t2.product_name
+ORDER BY
+	total_revenue DESC
 LIMIT 3;
-````
+  ```
+</details>
 
 **Results:**
 
