@@ -423,63 +423,78 @@ Blue Polo Shirt - Mens      |       217683|
 Grey Fashion Jacket - Womens|       209304|
 White Tee Shirt - Mens      |       152000|
 
-#### 2. What is the total quantity, revenue and discount for each segment?
+**2.**  What is the total quantity, revenue and discount for each segment?
 
-````sql
-SELECT pd.segment_id,
-	pd.segment_name,
-	sum(s.qty) AS total_quantity,
-	sum(s.price * s.qty) AS gross_revenue,
-	round(
-		sum((s.price * s.qty) * (s.discount::NUMERIC / 100)),
-		2
-	) AS total_discounts,
-	round(
-		sum(
-			(s.price * s.qty) * (1 - discount::NUMERIC / 100)
-		),
-		2
-	) AS total_revenue
-FROM balanced_tree.product_details AS pd
-	JOIN balanced_tree.sales AS s ON s.prod_id = pd.product_id
-GROUP BY pd.segment_id,
-	pd.segment_name;
-````
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT
+	t1.segment_id,
+	t1.segment_name,
+	SUM(t2.qty) AS total_quantity,
+	SUM(t2.price * t2.qty) AS gross_revenue,
+	ROUND(SUM((t2.price * t2.qty) * (t2.discount::NUMERIC / 100)), 2) AS total_discounts,
+	ROUND(SUM((t2.price * t2.qty) * (1 - discount::NUMERIC / 100)), 2) AS total_revenue
+FROM
+	balanced_tree.product_details AS t1
+JOIN
+	balanced_tree.sales AS t2 
+ON 
+	t2.prod_id = t1.product_id
+GROUP BY
+	t1.segment_id,
+	t1.segment_name;
+  ```
+</details>
 
 **Results:**
 
 segment_id|segment_name|total_quantity|gross_revenue|total_discounts|total_revenue|
 ----------|------------|--------------|-------------|---------------|-------------|
-4|Jacket      |         11385|       366983|       44277.46|    322705.54|
-6|Socks       |         11217|       307977|       37013.44|    270963.56|
-5|Shirt       |         11265|       406143|       49594.27|    356548.73|
-3|Jeans       |         11349|       208350|       25343.97|    183006.03|
+         4|Jacket      |         11385|       366983|       44277.46|    322705.54|
+         6|Socks       |         11217|       307977|       37013.44|    270963.56|
+         5|Shirt       |         11265|       406143|       49594.27|    356548.73|
+         3|Jeans       |         11349|       208350|       25343.97|    183006.03|
 
-#### 3. What is the top selling product for each segment?
+**3.**  What is the top selling product for each segment?
 
-````sql
-WITH top_ranking AS (
-	SELECT pd.segment_id,
-		pd.segment_name,
-		pd.product_name,
-		sum(qty) AS total_quantity,
-		rank() OVER (
-			PARTITION BY pd.segment_id
-			ORDER BY sum(qty) desc
-		) AS rnk
-	FROM balanced_tree.product_details AS pd
-		JOIN balanced_tree.sales AS s ON s.prod_id = pd.product_id
-	GROUP BY pd.segment_id,
-		pd.segment_name,
-		pd.product_name
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH top_ranking AS         
+(
+	SELECT
+		t1.segment_id,
+		t1.segment_name,
+		t1.product_name,
+		SUM(t2.qty) AS total_quantity,
+		RANK() OVER (PARTITION BY t1.segment_id ORDER BY SUM(t2.qty) DESC) AS rnk
+	FROM
+		balanced_tree.product_details AS t1
+	JOIN
+		balanced_tree.sales AS t2 
+	ON 
+		t2.prod_id = t1.product_id
+	GROUP BY
+		t1.segment_id,
+		t1.segment_name,
+		t1.product_name
 )
-SELECT segment_id,
+SELECT
+	segment_id,
 	segment_name,
 	product_name AS top_ranking_products,
 	total_quantity
-FROM top_ranking
-WHERE rnk = 1;
-````
+FROM 
+	top_ranking
+WHERE
+	rnk = 1;
+  ```
+</details>
 
 **Results:**
 
@@ -490,28 +505,31 @@ segment_id|segment_name|top_ranking_products         |total_quantity|
 5|Shirt       |Blue Polo Shirt - Mens       |          3819|
 6|Socks       |Navy Solid Socks - Mens      |          3792|
 
-#### 4. What is the total quantity, revenue and discount for each category?
+**4.**  What is the total quantity, revenue and discount for each category?
 
-````sql
-SELECT pd.category_id,
-	pd.category_name,
-	sum(s.qty) AS total_quantity,
-	sum(s.price * s.qty) AS gross_revenue,
-	round(
-		sum((s.price * s.qty) * (s.discount::NUMERIC / 100)),
-		2
-	) AS total_discounts,
-	round(
-		sum(
-			(s.price * s.qty) * (1 - discount::NUMERIC / 100)
-		),
-		2
-	) AS total_revenue
-FROM balanced_tree.product_details AS pd
-	JOIN balanced_tree.sales AS s ON s.prod_id = pd.product_id
-GROUP BY pd.category_id,
-	pd.category_name;
-````
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT
+	t1.category_id,
+	t1.category_name,
+	SUM(t2.qty) AS total_quantity,
+	SUM(t2.price * t2.qty) AS gross_revenue,
+	ROUND(SUM((t2.price * t2.qty) * (t2.discount::NUMERIC / 100)), 2) AS total_discounts,
+	ROUND(SUM((t2.price * t2.qty) * (1 - discount::NUMERIC / 100)), 2) AS total_revenue
+FROM
+	balanced_tree.product_details AS t1
+JOIN
+	balanced_tree.sales AS t2 
+ON 
+	t2.prod_id = t1.product_id
+GROUP BY
+	t1.category_id,
+	t1.category_name;
+  ```
+</details>
 
 **Results:**
 
@@ -520,31 +538,43 @@ category_id|category_name|total_quantity|gross_revenue|total_discounts|total_rev
 2|Mens         |         22482|       714120|       86607.71|    627512.29|
 1|Womens       |         22734|       575333|       69621.43|    505711.57|
 
-#### 5. What is the top selling product for each category?
+**5.**  What is the top selling product for each category?
 
-````sql
-WITH top_ranking AS (
-	SELECT pd.category_id,
-		pd.category_name,
-		pd.product_name,
-		sum(qty) AS total_quantity,
-		rank() OVER (
-			PARTITION BY pd.category_id
-			ORDER BY sum(qty) desc
-		) AS rnk
-	FROM balanced_tree.product_details AS pd
-		JOIN balanced_tree.sales AS s ON s.prod_id = pd.product_id
-	GROUP BY pd.category_id,
-		pd.product_name,
-		pd.category_name
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH top_ranking AS         
+(
+	SELECT
+		t1.category_id,
+		t1.category_name,
+		t1.product_name,
+		SUM(t2.qty) AS total_quantity,
+		RANK() OVER (PARTITION BY t1.category_id ORDER BY SUM(t2.qty) desc) AS rnk
+	FROM
+		balanced_tree.product_details AS t1
+	JOIN
+		balanced_tree.sales AS t2 
+	ON 
+		t2.prod_id = t1.product_id
+	GROUP BY
+		t1.category_id,
+		t1.product_name,
+		t1.category_name
 )
-SELECT category_id,
+SELECT
+	category_id,
 	category_name,
 	product_name AS top_ranking_products,
 	total_quantity
-FROM top_ranking
-WHERE rnk = 1;
-````
+FROM 
+	top_ranking
+WHERE
+	rnk = 1;
+  ```
+</details>
 
 **Results:**
 
@@ -553,27 +583,33 @@ category_id|category_name|top_ranking_products        |total_quantity|
 1|Womens       |Grey Fashion Jacket - Womens|          3876|
 2|Mens         |Blue Polo Shirt - Mens      |          3819|
 
-#### 6. What is the percentage split of revenue by product for each segment?
+**6.**  What is the percentage split of revenue by product for each segment?
 
-````sql
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
 WITH get_total_revenue AS (
 	SELECT
-		pd.segment_id,
-		pd.segment_name,
-		pd.product_id,
-		pd.product_name,
-		round(sum((s.price * s.qty) * (1 - discount::NUMERIC / 100)), 2) AS total_revenue
+		t1.segment_id,
+		t1.segment_name,
+		t1.product_id,
+		t1.product_name,
+		ROUND(SUM((t2.price * t2.qty) * (1 - discount::NUMERIC / 100)), 2) AS total_revenue
 	FROM
-		balanced_tree.product_details AS pd
+		balanced_tree.product_details AS t1
 	JOIN
-		balanced_tree.sales AS s ON s.prod_id = pd.product_id
+		balanced_tree.sales AS t2 
+	ON 
+		t2.prod_id = t1.product_id
 	GROUP BY 
-		pd.product_id,
-		pd.product_name,
-		pd.segment_id,
-		pd.segment_name
+		t1.product_id,
+		t1.product_name,
+		t1.segment_id,
+		t1.segment_name
 	ORDER BY
-		segment_id
+		t1.segment_id
 )
 SELECT
 	segment_id,
@@ -581,10 +617,11 @@ SELECT
 	product_id,
 	product_name,
 	total_revenue,
-	round(100 * (total_revenue / sum(total_revenue)OVER(PARTITION BY segment_id)), 2) AS revenue_percentage
+	ROUND(100 * (total_revenue / SUM(total_revenue)OVER(PARTITION BY segment_id)), 2) AS revenue_percentage
 FROM
     get_total_revenue;
-````
+  ```
+</details>
 
 **Results:**
 
@@ -603,76 +640,88 @@ segment_id|segment_name|product_id|product_name                    |total_revenu
 6|Socks       |f084eb    |Navy Solid Socks - Mens         |    119861.64|             44.24|
 6|Socks       |b9a74d    |White Striped Socks - Mens      |     54724.19|             20.20|
 
-#### 7. What is the percentage split of revenue by segment for each category?
+**7.**  What is the percentage split of revenue by segment for each category?
 
-````sql
-SELECT segment_id,
-	segment_name,
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH get_total_revenue AS (
+	SELECT
+		t1.segment_id,
+		t1.segment_name,
+		t1.category_id,
+		t1.category_name,
+		ROUND(SUM((t2.price * t2.qty))::NUMERIC) AS total_revenue
+	FROM
+		balanced_tree.product_details AS t1
+	JOIN
+		balanced_tree.sales AS t2 
+	ON 
+		t2.prod_id = t1.product_id
+	GROUP BY 
+		t1.category_id,
+		t1.category_name,
+		t1.segment_id,
+		t1.segment_name
+	ORDER BY
+		t1.segment_id
+)
+SELECT
 	category_id,
 	category_name,
+	segment_id,
+	segment_name,
 	total_revenue,
-	round(
-		100 * (
-			total_revenue / sum(total_revenue) OVER(PARTITION BY category_id)
-		),
-		2
-	) AS revenue_percentage
-FROM (
-		SELECT pd.segment_id,
-			pd.segment_name,
-			pd.category_id,
-			pd.category_name,
-			round(
-				sum(
-					(s.price * s.qty) * (1 - discount::NUMERIC / 100)
-				),
-				2
-			) AS total_revenue
-		FROM balanced_tree.product_details AS pd
-			JOIN balanced_tree.sales AS s ON s.prod_id = pd.product_id
-		GROUP BY pd.category_id,
-			pd.category_name,
-			pd.segment_id,
-			pd.segment_name
-		ORDER BY segment_id
-	) AS tmp;
-````
+	ROUND(100 * (total_revenue / SUM(total_revenue)OVER(PARTITION BY category_id)), 2) AS revenue_percentage
+FROM
+	get_total_revenue;
+  ```
+</details>
 
 **Results:**
 
-segment_id|segment_name|category_id|category_name|total_revenue|revenue_percentage|
-----------|------------|-----------|-------------|-------------|------------------|
-3|Jeans       |          1|Womens       |    183006.03|             36.19|
-4|Jacket      |          1|Womens       |    322705.54|             63.81|
-5|Shirt       |          2|Mens         |    356548.73|             56.82|
-6|Socks       |          2|Mens         |    270963.56|             43.18|
+category_id|category_name|segment_id|segment_name|total_revenue|revenue_percentage|
+-----------|-------------|----------|------------|-------------|------------------|
+1|Womens       |         3|Jeans       |       208350|             36.21|
+1|Womens       |         4|Jacket      |       366983|             63.79|
+2|Mens         |         5|Shirt       |       406143|             56.87|
+2|Mens         |         6|Socks       |       307977|             43.13|
 
-#### 8.  What is the percentage split of total revenue by category?
+**8.**  What is the percentage split of total revenue by category?
 
-````sql
-SELECT category_id,
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH get_gender_revenue AS (
+	SELECT
+		t1.category_id,
+		t1.category_name,
+		ROUND(SUM((t2.price * t2.qty)), 2) AS total_revenue
+	FROM
+		balanced_tree.product_details AS t1
+	JOIN
+		balanced_tree.sales AS t2 
+	ON 
+		t2.prod_id = t1.product_id
+	GROUP BY 
+		t1.category_id,
+		t1.category_name
+	ORDER BY
+		t1.category_id
+)
+SELECT
+	category_id,
 	category_name,
 	total_revenue,
-	round(
-		100 * (total_revenue / sum(total_revenue) OVER()),
-		2
-	) AS revenue_percentage
-FROM (
-		SELECT pd.category_id,
-			pd.category_name,
-			round(
-				sum(
-					(s.price * s.qty) * (1 - discount::NUMERIC / 100)
-				),
-				2
-			) AS total_revenue
-		FROM balanced_tree.product_details AS pd
-			JOIN balanced_tree.sales AS s ON s.prod_id = pd.product_id
-		GROUP BY pd.category_id,
-			pd.category_name
-		ORDER BY category_id
-	) AS tmp;
-````
+	ROUND(100 * (total_revenue / SUM(total_revenue)OVER()), 2) AS revenue_percentage
+FROM
+     get_gender_revenue; 
+  ```
+</details>
 
 **Results:**
 
@@ -681,93 +730,135 @@ category_id|category_name|total_revenue|revenue_percentage|
 1|Womens       |    505711.57|             44.63|
 2|Mens         |    627512.29|             55.37|
 
-#### 9.  What is the total transaction “penetration” for each product? (hint: penetration = number of transactions where at least 1 quantity of a product was purchased divided by total number of transactions)    
+**9.**  What is the total transaction “penetration” for each product? 
+- hint: penetration = number of transactions where at least 1 quantity of a product was purchased divided by total number of transactions.
 
-````sql
-SELECT product_name,
-	n_sold AS n_items_sold,
-	round(100 * (n_sold::numeric / total_transactions), 2) AS product_penetration
-from (
-		SELECT pd.product_id,
-			pd.product_name,
-			count(DISTINCT txn_id) AS n_sold,
-			(
-				SELECT count(DISTINCT txn_id)
-				FROM balanced_tree.sales
-			) AS total_transactions
-		FROM balanced_tree.sales AS s
-			JOIN balanced_tree.product_details AS pd ON pd.product_id = s.prod_id
-		GROUP BY pd.product_id,
-			pd.product_name
-	) AS tmp
-GROUP BY product_name,
-	n_items_sold,
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+WITH get_total_sold AS (
+	SELECT
+		t2.product_id,
+		t2.product_name,
+		COUNT(DISTINCT txn_id) AS n_sold,
+		(SELECT COUNT(DISTINCT txn_id) FROM balanced_tree.sales) AS total_transactions
+	FROM
+		balanced_tree.sales AS t1
+	JOIN 
+		balanced_tree.product_details AS t2 
+	ON 
+		t2.product_id = t1.prod_id
+	GROUP BY
+		t2.product_id,
+		t2.product_name
+)
+SELECT
+	product_name,
+	n_sold AS number_of_items_sold,
+	ROUND(100 * (n_sold::NUMERIC / total_transactions), 2) AS product_penetration
+FROM
+     get_total_sold
+GROUP BY 
+	product_name,
+	number_of_items_sold,
 	product_penetration
-ORDER BY product_penetration DESC;
-````
+ORDER BY
+	product_penetration DESC;
+  ```
+</details>
 
 **Results:**
 
-product_name                    |n_items_sold|product_penetration|
---------------------------------|------------|-------------------|
-Navy Solid Socks - Mens         |        1281|              51.24|
-Grey Fashion Jacket - Womens    |        1275|              51.00|
-Navy Oversized Jeans - Womens   |        1274|              50.96|
-Blue Polo Shirt - Mens          |        1268|              50.72|
-White Tee Shirt - Mens          |        1268|              50.72|
-Pink Fluro Polkadot Socks - Mens|        1258|              50.32|
-Indigo Rain Jacket - Womens     |        1250|              50.00|
-Khaki Suit Jacket - Womens      |        1247|              49.88|
-Black Straight Jeans - Womens   |        1246|              49.84|
-Cream Relaxed Jeans - Womens    |        1243|              49.72|
-White Striped Socks - Mens      |        1243|              49.72|
-Teal Button Up Shirt - Mens     |        1242|              49.68|
+product_name                    |number_of_items_sold|product_penetration|
+--------------------------------|--------------------|-------------------|
+Navy Solid Socks - Mens         |                1281|              51.24|
+Grey Fashion Jacket - Womens    |                1275|              51.00|
+Navy Oversized Jeans - Womens   |                1274|              50.96|
+Blue Polo Shirt - Mens          |                1268|              50.72|
+White Tee Shirt - Mens          |                1268|              50.72|
+Pink Fluro Polkadot Socks - Mens|                1258|              50.32|
+Indigo Rain Jacket - Womens     |                1250|              50.00|
+Khaki Suit Jacket - Womens      |                1247|              49.88|
+Black Straight Jeans - Womens   |                1246|              49.84|
+Cream Relaxed Jeans - Womens    |                1243|              49.72|
+White Striped Socks - Mens      |                1243|              49.72|
+Teal Button Up Shirt - Mens     |                1242|              49.68|
 
-#### 10. What is the most common combination of at least 1 quantity of any 3 products in a 1 single transaction?
+**10.**  What is the most common combination of at least 1 quantity of any 3 products in a 1 single transaction?
 
-This question had me stumped and I was not able to get it quite right.  After some searching and studying, I 
- found a great working example done by https://github.com/muryulia/.  By following her example, I was able to understand the logic behind her answer. This is a combinatorics question. https://mathworld.wolfram.com/Combinatorics.html
- 
- You essentially make EVERY possible 3 product combination and count how many times each set occurs, apply a row number using a window function and pick the first one.  I will attempt to comment the code to explain how it works. 
+:exclamation: Note: :exclamation: 
+This question had me stumped and I was not able to get it quite right.  After some researching and studying, I found a great working example done by https://github.com/muryulia/.  By following her example, I was able to understand the logic behind her answer.
 
-````sql
+This is a combinatorics question. https://mathworld.wolfram.com/Combinatorics.html
+
+You essentially make EVERY possible 3 product combination and count how many times each set occurs, apply a row number using a window function and pick the first one.  I will attempt to comment the code to explain how it works.
+
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
 -- Select the 3 item combination and the count of the amount of times items where bought together.               
-SELECT product_1,
-	product_2,
-	product_3,
-	times_bought_together
-FROM (
-		-- Create a CTE that joins the Sales table with the Product Details table and gather the
-		-- transaction id's and product names.
-		with products AS(
-			SELECT txn_id,
-				product_name
-			FROM balanced_tree.sales AS s
-				JOIN balanced_tree.product_details AS pd ON s.prod_id = pd.product_id
-		) -- Use self-joins to create every combination of products.  Each column is derived from its own table.
-		SELECT p.product_name AS product_1,
-			p1.product_name AS product_2,
-			p2.product_name AS product_3,
-			COUNT(*) AS times_bought_together,
-			ROW_NUMBER() OVER(
-				ORDER BY COUNT(*) DESC
-			) AS rank -- Use a window function to apply a unique row number to each permutation.
-		FROM products AS p
-			JOIN products AS p1 ON p.txn_id = p1.txn_id -- Self-join table 1 to table 2
-			AND p.product_name != p1.product_name -- Ensure that we DO NOT duplicate items.
-			AND p.product_name < p1.product_name -- Self-join table 1 to table 3
-			JOIN products AS p2 ON p.txn_id = p2.txn_id
-			AND p.product_name != p2.product_name -- Ensure that we DO NOT duplicate items in the first table.
-			AND p1.product_name != p2.product_name -- Ensure that we DO NOT duplicate items in the second table.
-			AND p.product_name < p2.product_name
-			AND p1.product_name < p2.product_name
-		GROUP BY p.product_name,
-			p1.product_name,
-			p2.product_name
-	) AS tmp
-WHERE RANK = 1;
--- Filter only the highest ranking item.
-````
+SELECT
+  product_1,
+  product_2,
+  product_3,
+  times_bought_together
+FROM
+  (
+  	-- Create a CTE that joins the Sales table with the Product Details table and gather the
+  	-- transaction id's and product names.
+    with products AS(
+    	SELECT
+        	txn_id,
+        	product_name
+      	FROM
+        	balanced_tree.sales AS t1
+      	JOIN 
+      		balanced_tree.product_details AS t2 
+      	ON 
+      		t1.prod_id = t2.product_id
+    )
+    -- Use self-joins to create every combination of products.  Each column is derived from its own table.
+    SELECT
+    	t1.product_name AS product_1,
+      	t2.product_name AS product_2,
+      	t3.product_name AS product_3,
+      	COUNT(*) AS times_bought_together,
+      	ROW_NUMBER() OVER(ORDER BY COUNT(*) DESC) AS row_id -- Use a window function to apply a unique row number to each permutation.
+    FROM
+    	products AS t1
+    JOIN 
+    	products AS t2 
+    ON 
+    	t1.txn_id = t2.txn_id -- Self-join table 1 to table 2
+    AND 
+    	t1.product_name != t2.product_name -- Ensure that we DO NOT duplicate items.
+    AND 
+    	t1.product_name < t2.product_name -- Self-join table 1 to table 3
+    JOIN 
+    	products AS t3 
+    ON 
+    	t1.txn_id = t3.txn_id
+    AND 
+    	t1.product_name != t3.product_name -- Ensure that we DO NOT duplicate items in the first table.
+    AND 
+    	t2.product_name != t3.product_name -- Ensure that we DO NOT duplicate items in the second table.
+    AND 
+    	t1.product_name < t3.product_name
+    AND 
+    	t2.product_name < t3.product_name
+    GROUP BY
+      t1.product_name,
+      t2.product_name,
+      t3.product_name
+  ) AS tmp
+WHERE
+  row_id = 1; -- Filter only the highest ranking item.
+  ```
+</details>
 
 **Results:**
 
@@ -775,48 +866,55 @@ product_1                   |product_2                  |product_3             |
 ----------------------------|---------------------------|----------------------|---------------------|
 Grey Fashion Jacket - Womens|Teal Button Up Shirt - Mens|White Tee Shirt - Mens|                  352|
 
-**D.  Bonus Challenge**
+
+#### Part D: Bonus Challenge
 
 Use a single SQL query to transform the product_hierarchy and product_prices datasets to the product_details table.
 
-````sql
-SELECT pp.product_id,
-	pp.price,
-	ph.level_text || ' - ' || CASE
-		WHEN ph.parent_id = 1
-		OR ph.parent_id = 3
-		OR ph.parent_id = 4 THEN 'Womens'
-		ELSE 'Mens'
-	END AS product_name,
+<details>
+  <summary>Click to expand answer!</summary>
+
+  ##### Answer
+  ```sql
+SELECT
+	t2.product_id,
+	t2.price,
+	t1.level_text || 
+		' - ' || 
+		CASE
+			WHEN t1.parent_id = 1 OR  t1.parent_id = 3 OR t1.parent_id = 4 THEN 'Womens'
+			ELSE 'Mens'
+		END AS product_name,
 	CASE
-		WHEN ph.parent_id = 1
-		OR ph.parent_id = 3
-		OR ph.parent_id = 4 THEN 1
+		WHEN t1.parent_id = 1 OR  t1.parent_id = 3 OR t1.parent_id = 4 THEN 1
 		ELSE 2
 	END AS category_id,
 	CASE
-		WHEN ph.parent_id = 3 THEN 3
-		WHEN ph.parent_id = 4 THEN 4
-		WHEN ph.parent_id = 5 THEN 5
-		WHEN ph.parent_id = 6 THEN 6
+		WHEN t1.parent_id = 3 THEN 3
+		WHEN t1.parent_id = 4 THEN 4
+		WHEN t1.parent_id = 5 THEN 5
+		WHEN t1.parent_id = 6 THEN 6
 	END AS segment_id,
-	pp.id AS style_id,
+	t2.id AS style_id,
 	CASE
-		WHEN ph.parent_id = 1
-		OR ph.parent_id = 3
-		OR ph.parent_id = 4 THEN 'Womens'
+		WHEN t1.parent_id = 1 OR  t1.parent_id = 3 OR t1.parent_id = 4 THEN 'Womens'
 		ELSE 'Mens'
 	END AS category_name,
 	CASE
-		WHEN ph.parent_id = 3 THEN 'Jeans'
-		WHEN ph.parent_id = 4 THEN 'Jacket'
-		WHEN ph.parent_id = 5 THEN 'Shirt'
-		WHEN ph.parent_id = 6 THEN 'Socks'
+		WHEN t1.parent_id = 3 THEN 'Jeans'
+		WHEN t1.parent_id = 4 THEN 'Jacket'
+		WHEN t1.parent_id = 5 THEN 'Shirt'
+		WHEN t1.parent_id = 6 THEN 'Socks'
 	END AS segment_name,
-	ph.level_text AS style_name
-FROM balanced_tree.product_hierarchy AS ph
-	JOIN balanced_tree.product_prices AS pp ON ph.id = pp.id;
-````
+	t1.level_text AS style_name
+FROM 
+	balanced_tree.product_hierarchy AS t1
+JOIN
+	balanced_tree.product_prices AS t2 
+ON 
+	t1.id = t2.id;
+  ```
+</details>
 
 **Results:**
 
@@ -834,3 +932,5 @@ c8d436    |   10|Teal Button Up - Mens     |          2|         5|      14|Mens
 f084eb    |   36|Navy Solid - Mens         |          2|         6|      16|Mens         |Socks       |Navy Solid         |
 b9a74d    |   17|White Striped - Mens      |          2|         6|      17|Mens         |Socks       |White Striped      |
 2feb6b    |   29|Pink Fluro Polkadot - Mens|          2|         6|      18|Mens         |Socks       |Pink Fluro Polkadot|
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:
