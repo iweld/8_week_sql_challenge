@@ -14,5 +14,9 @@ For this case study there is a total of 4 datasets for this case study - however
 - **product_hierarchy**
 - **product_prices**
 
-## Entity Relationship Diagram
-![alt text](https://github.com/iweld/8-Week-SQL-Challenge/blob/main/Case%20Study%207%20-%20Balanced%20Tree/ERD.JPG)
+<!--
+### Entity Relationship Diagram
+![alt text](./images/ERD.png)
+-->
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:

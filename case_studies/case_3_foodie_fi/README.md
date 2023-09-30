@@ -24,5 +24,9 @@ There are 5 customer plans.
 - When customers *upgrade* their account from a basic plan to a pro or annual pro plan - the higher plan will take effect straightaway.
 - When customers *churn* - they will keep their access until the end of their current billing period but the start_date will be technically the day they decided to cancel their service.
 
-## Entity Relationship Diagram
-![alt text](https://github.com/iweld/8-Week-SQL-Challenge/blob/main/Case%20Study%203%20-%20Foodie-Fi/ERD.JPG)
+<!--
+### Entity Relationship Diagram
+![alt text](./images/ERD.png)
+-->
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:

@@ -16,5 +16,9 @@ For this case study there is a total of 2 datasets which you will need to use to
 - <strong>Interest_Metrics</strong>: This table contains information about aggregated interest metrics for a specific major client of Fresh Segments which makes up a large proportion of their customer base.
 - <strong>Interest_Map</strong>: This mapping table links the interest_id with their relevant interest information.
 
-## Entity Relationship Diagram
-![alt text](https://github.com/iweld/8-Week-SQL-Challenge/blob/main/Case%20Study%208%20-%20Fresh%20Segments/ERD.JPG)
+<!--
+### Entity Relationship Diagram
+![alt text](./images/ERD.png)
+-->
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:

@@ -17,5 +17,9 @@ Three key datasets for this case study
 ### Case Study
 [Case Study #1 - Danny's Diner: SQL Solutions](./dannys_diner.md)
 
+<!--
 ### Entity Relationship Diagram
 ![alt text](./images/ERD.png)
+-->
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:

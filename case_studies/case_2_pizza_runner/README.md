@@ -31,5 +31,9 @@ There are some known data issues with few tables. Data cleaning was performed an
 - In the duration column, there are null values. The 'minutes', 'mins' 'minute' must be stripped
 - In the cancellation column, there are blank spaces and null values.
 
-## Entity Relationship Diagram
-![alt text](https://github.com/iweld/8-Week-SQL-Challenge/blob/main/Case%20Study%202%20-%20Pizza%20Runner/ERD.JPG)
+<!--
+### Entity Relationship Diagram
+![alt text](./images/ERD.png)
+-->
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:

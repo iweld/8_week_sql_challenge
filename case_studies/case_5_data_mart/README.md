@@ -19,5 +19,9 @@ For this case study there is only a single table: **weekly_sales**
 
 The Entity Relationship Diagram is shown below with the data types made clear, please note that there is only this one table - hence why it looks a little bit lonely!
 
-## Entity Relationship Diagram
-![alt text](https://github.com/iweld/8-Week-SQL-Challenge/blob/main/Case%20Study%205%20-%20Data%20Mart/ERD.JPG)
+<!--
+### Entity Relationship Diagram
+![alt text](./images/ERD.png)
+-->
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:

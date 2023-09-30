@@ -20,5 +20,9 @@ Key datasets for this case study
 - **customer_nodes** : Customers are randomly distributed across the nodes according to their region - this also specifies exactly which node contains both their cash and data.  This random distribution changes frequently to reduce the risk of hackers getting into Data Bank’s system and stealing customer’s money and data!
 - **customer_transactions** : This table stores all customer deposits, withdrawals and purchases made using their Data Bank debit card.
 
-## Entity Relationship Diagram
-![alt text](https://github.com/iweld/8-Week-SQL-Challenge/blob/main/Case%20Study%204%20-%20Data%20Bank/ERD.JPG)
+<!--
+### Entity Relationship Diagram
+![alt text](./images/ERD.png)
+-->
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:
