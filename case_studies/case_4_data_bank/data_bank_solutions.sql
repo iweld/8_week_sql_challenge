@@ -101,7 +101,9 @@ CREATE TEMP TABLE get_all_nodes AS (
 		start_date,
 		end_date,
 		node_id,
-		LAG(node_id) OVER (PARTITION BY customer_id ORDER BY start_date) AS prev_node,
+		LAG(node_id) OVER (
+			PARTITION BY customer_id 
+			ORDER BY start_date) AS prev_node,
 		DATE_PART('day', age(end_date, start_date))::NUMERIC AS duration
 	FROM
 		data_bank.customer_nodes
@@ -131,7 +133,7 @@ WITH get_avg_duration AS (
 		customer_id
 )
 SELECT
-	round(AVG(node_duration)) avg_node_duration
+	ROUND(AVG(node_duration)) avg_node_duration
 FROM
 	get_avg_duration;
 
@@ -160,8 +162,10 @@ CREATE TEMP TABLE get_all_region_nodes AS (
 		start_date,
 		end_date,
 		node_id,
-		LAG(node_id) OVER (PARTITION BY customer_id ORDER BY start_date) AS prev_node,
-		DATE_PART('day', age(end_date, start_date))::NUMERIC AS duration
+		LAG(node_id) OVER (
+			PARTITION BY customer_id 
+			ORDER BY start_date) AS prev_node,
+		DATE_PART('day', AGE(end_date, start_date))::NUMERIC AS duration
 	FROM
 		data_bank.customer_nodes AS t1
 	JOIN 

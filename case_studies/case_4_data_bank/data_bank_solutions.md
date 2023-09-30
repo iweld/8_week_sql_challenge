@@ -118,7 +118,9 @@ CREATE TEMP TABLE get_all_nodes AS (
 		start_date,
 		end_date,
 		node_id,
-		LAG(node_id) OVER (PARTITION BY customer_id ORDER BY start_date) AS prev_node,
+		LAG(node_id) OVER (
+			PARTITION BY customer_id 
+			ORDER BY start_date) AS prev_node,
 		DATE_PART('day', age(end_date, start_date))::NUMERIC AS duration
 	FROM
 		data_bank.customer_nodes
@@ -148,7 +150,7 @@ WITH get_avg_duration AS (
 		customer_id
 )
 SELECT
-	round(AVG(node_duration)) avg_node_duration
+	ROUND(AVG(node_duration)) avg_node_duration
 FROM
 	get_avg_duration;
   ```
@@ -162,7 +164,7 @@ avg_node_duration|
 
 **5.**  What is the median, 80th and 95th percentile for this same reallocation days metric for each region?
 
-:exclamation: Developers Note :exclamation:
+:exclamation: Developers Note :exclamation: 
 I'm not sure if this answer is 100% accurate.  This question will require a revisit at a later time.
 
 <details>
@@ -179,8 +181,10 @@ CREATE TEMP TABLE get_all_region_nodes AS (
 		start_date,
 		end_date,
 		node_id,
-		LAG(node_id) OVER (PARTITION BY customer_id ORDER BY start_date) AS prev_node,
-		DATE_PART('day', age(end_date, start_date))::NUMERIC AS duration
+		LAG(node_id) OVER (
+			PARTITION BY customer_id 
+			ORDER BY start_date) AS prev_node,
+		DATE_PART('day', AGE(end_date, start_date))::NUMERIC AS duration
 	FROM
 		data_bank.customer_nodes AS t1
 	JOIN 
