@@ -83,10 +83,10 @@ WITH first_order_cte AS
 		t1.order_date,
 		t2.product_name,
 		DENSE_RANK() OVER (
-				-- Will customer give a unique row number per order
-				PARTITION BY t1.customer_id 
-				-- Order by date (from earliest to lastest date)
-				ORDER BY t1.order_date) AS ranking
+			-- Will customer give a unique row number per order
+			PARTITION BY t1.customer_id 
+			-- Order by date (from earliest to lastest date)
+			ORDER BY t1.order_date) AS ranking
 		FROM 
 			dannys_diner.sales AS t1
 		JOIN 
@@ -155,7 +155,7 @@ WITH most_popular_item_cte AS
 	SELECT 
 		t1.customer_id,
 		t2.product_name,
-		count(t2.product_id) AS number_purchased,
+		COUNT(t2.product_id) AS number_purchased,
 		RANK() OVER (
 			PARTITION BY t1.customer_id 
 			ORDER BY COUNT(t2.product_id) DESC) AS popularity_rank
@@ -207,8 +207,8 @@ WITH first_member_purchase_cte AS
 		t1.join_date,
 		t2.order_date,	
 		RANK() OVER (
-				PARTITION BY t1.customer_id 
-				ORDER BY t2.order_date) as purchase_rank
+			PARTITION BY t1.customer_id 
+			ORDER BY t2.order_date) as purchase_rank
 	FROM 
 		dannys_diner.members AS t1
 	JOIN 
@@ -253,9 +253,11 @@ WITH last_nonmember_purchase_cte AS
 	SELECT 
 		t1.customer_id,
 		t3.product_name,
+		t2.order_date,
+		t1.join_date,
 		RANK() OVER (
-				PARTITION BY t1.customer_id 
-				ORDER BY t2.order_date DESC) as purchase_rank
+			PARTITION BY t1.customer_id 
+			ORDER BY t2.order_date DESC) as purchase_rank
 		FROM 
 			dannys_diner.members AS t1
 		JOIN 
@@ -271,6 +273,8 @@ WITH last_nonmember_purchase_cte AS
 )
 SELECT 
 	customer_id,
+	order_date,
+	join_date,
 	product_name
 FROM 
 	last_nonmember_purchase_cte
@@ -341,7 +345,7 @@ WITH total_customer_points_cte AS
 (
 	SELECT 
 		t1.customer_id as customer,
-		sum(
+		SUM(
 			CASE
 				WHEN t2.product_name = 'sushi' THEN (t2.price * 20)
 				ELSE (t2.price * 10)
@@ -381,7 +385,7 @@ C       |          360|
   ```sql
 WITH jan_member_points_cte AS
 (
-	select 
+	SELECT 
 		t1.customer_id,
 		SUM(
 			CASE
@@ -455,15 +459,14 @@ C          |2021-01-07|ramen       |    12|N     |
 DROP TABLE IF EXISTS join_all_things;
 CREATE TABLE join_all_things AS 
 (
-	select 
+	SELECT 
 		t1.customer_id,
 		t1.order_date,
 		t3.product_name,
 		t3.price,
 		CASE
-			WHEN t1.order_date < t2.join_date THEN 'N'
+			WHEN t1.order_date < t2.join_date OR t2.join_date IS NULL THEN 'N'
 			WHEN t1.order_date >= t2.join_date THEN 'Y'
-			WHEN t2.join_date IS NULL THEN 'N'
 		END AS member
 	FROM
 		dannys_diner.sales AS t1
@@ -477,7 +480,8 @@ CREATE TABLE join_all_things AS
 		t1.product_id = t3.product_id
 );
 
-SELECT *
+SELECT 
+	*
 FROM
 	join_all_things
 ORDER BY
@@ -498,7 +502,10 @@ SELECT
 	*,
 	CASE
 		-- This will only rank members AFTER their join date
-		WHEN member = 'Y' THEN DENSE_RANK() OVER (PARTITION BY customer_id, member ORDER BY order_date) 
+		WHEN member = 'Y' THEN 
+			DENSE_RANK() OVER (
+				PARTITION BY customer_id, member 
+				ORDER BY order_date) 
 	END AS ranking
 FROM
 	join_all_things
