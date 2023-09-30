@@ -382,10 +382,10 @@ count |
       
 -- 1.  Which interests have been present in all month_year dates in our dataset?
 
-WITH persistent_interests AS (
+WITH get_total_months AS (
 	SELECT 
 		interest_id,
-		COUNT(DISTINCT month_year) AS month_count
+		COUNT(DISTINCT month_year) AS total_months
 	FROM
 		fresh_segments.interest_metrics
 	WHERE
@@ -394,18 +394,18 @@ WITH persistent_interests AS (
 		interest_id
 )
 SELECT
-	month_count,
+	total_months,
 	COUNT(*) AS number_of_interests
 FROM
-	persistent_interests
+	get_total_months
 GROUP BY 
-	month_count
+	total_months
 ORDER BY 
-	month_count DESC;
+	total_months DESC;
 	
 /*
 	
-month_count|number_of_interests|
+total_months|number_of_interests|
 -----------+-------------------+
          14|                480|
          13|                 82|
@@ -427,67 +427,29 @@ month_count|number_of_interests|
 
 -- 2. Using this same total_months measure - calculate the cumulative percentage of all records starting at 
 -- 14 months - which total_months value passes the 90% cumulative percentage value?
-
--- This questions requires us to first get the count of id's per month for 14 months.
-
-WITH cte_total_months AS (
+           
+-- Using the previous question CTE, we can answer the question.
+           
+WITH get_total_months AS (
 	SELECT 
 		interest_id,
-		count(DISTINCT month_year) AS total_months
+		COUNT(DISTINCT month_year) AS total_months
 	FROM
 		fresh_segments.interest_metrics
-	GROUP BY
-		interest_id
-)
-SELECT
-	total_months,
-	count(*) AS n_ids
-FROM
-	cte_total_months
-GROUP BY
-	total_months
-ORDER BY
-	total_months DESC;
-
--- Results:
-	
-total_months|n_ids|
-------------+-----+
-          14|  480|
-          13|   82|
-          12|   65|
-          11|   94|
-          10|   86|
-           9|   95|
-           8|   67|
-           7|   90|
-           6|   33|
-           5|   38|
-           4|   32|
-           3|   15|
-           2|   12|
-           1|   13|
-           
--- Using the previous CTE, we can answer the question.
-           
-WITH cte_total_months AS (
-	SELECT 
-		interest_id,
-		count(DISTINCT month_year) AS total_months
-	FROM
-		fresh_segments.interest_metrics
+	WHERE
+		interest_id IS NOT NULL
 	GROUP BY
 		interest_id
 ),
 -- Get the percentages for each month_year
-cte_cumalative_perc AS (
+get_cumalative_percentage AS (
 	SELECT
 		total_months,
-		count(*) AS n_ids,
+		COUNT(*) AS number_of_ids,
 		-- by using the OVER clause, we can nest aggregate functions.
-		round(100 * sum(count(*)) OVER (ORDER BY total_months desc) / sum(count(*)) over(), 2) AS cumalative_perc
+		ROUND(100 * SUM(COUNT(*)) OVER (ORDER BY total_months DESC) / SUM(COUNT(*)) OVER(), 2) AS cumalative_percentage
 	FROM
-		cte_total_months
+		get_total_months
 	GROUP BY
 		total_months
 	ORDER BY total_months DESC
@@ -495,47 +457,46 @@ cte_cumalative_perc AS (
 -- Select results that are >= 90%
 SELECT
 	total_months,
-	n_ids,
-	cumalative_perc
+	number_of_ids,
+	cumalative_percentage
 FROM
-	cte_cumalative_perc
+	get_cumalative_percentage 
 WHERE 
-	cumalative_perc >= 90;
+	cumalative_percentage >= 90;
 
 -- Results:
 
-total_months|n_ids|cumalative_perc|
-------------+-----+---------------+
-           6|   33|          90.85|
-           5|   38|          94.01|
-           4|   32|          96.67|
-           3|   15|          97.92|
-           2|   12|          98.92|
-           1|   13|         100.00|
+total_months|number_of_ids|cumalative_percentage|
+-----------+-------------+---------------------+
+          6|           33|                90.85|
+          5|           38|                94.01|
+          4|           32|                96.67|
+          3|           15|                97.92|
+          2|           12|                98.92|
+          1|           13|               100.00|
 
 -- 3. If we were to remove all interest_id values which are lower than the total_months value we found in the 
 -- previous question - how many total data points would we be removing?
            
 -- We must exclude the first six months.
-
 WITH cte_total_months AS (
 	SELECT 
 		interest_id,
-		count(DISTINCT month_year) AS total_months
+		COUNT(DISTINCT month_year) AS total_months
 	FROM
 		fresh_segments.interest_metrics
 	GROUP BY
 		interest_id
 	HAVING
-		count(DISTINCT month_year) < 6
+		COUNT(DISTINCT month_year) < 6
 )
 -- Select results that are < 90%
 SELECT
-	count(*) rows_removed
+	COUNT(*) rows_removed
 FROM
 	fresh_segments.interest_metrics
 WHERE
-	exists(
+	EXISTS(
 		SELECT
 			interest_id
 		FROM
@@ -544,332 +505,250 @@ WHERE
 			cte_total_months.interest_id = fresh_segments.interest_metrics.interest_id
 	);
 
--- Results:
+/*
 	
 rows_removed|
 ------------+
          400|
+         
+*/         
 
 -- 4. Does this decision make sense to remove these data points from a business perspective? Use an example where 
 -- there are all 14 months present to a removed interest example for your arguments - think about what it means to have 
 -- less months present from a segment perspective.
 
--- If we were to remove the data points, we have a higher chance of attracting more customers because of the targeted interests.
+-- There could be some very good reasons for wanting to remove the data points with less than 6 months.  These could
+-- mean that the data is incomplete, newly implemented or inconsistent.  However, there should be no right or wrong
+-- answer unless we understand the business specific question we are attempting to answer.
          
 -- 5.  After removing these interests - how many unique interests are there for each month?
 
-WITH cte_total_months AS (
-	SELECT 
-		interest_id,
-		count(DISTINCT month_year) AS total_months
-	FROM
-		fresh_segments.interest_metrics
-	GROUP BY
-		interest_id
-	HAVING
-		count(DISTINCT month_year) >= 6
+WITH get_interest_rank AS (
+	SELECT
+	  t1.month_year,
+	  t2.interest_name,
+	  t1.composition,
+	  RANK() OVER (
+	  	PARTITION BY t2.interest_name
+	    ORDER BY composition DESC
+	  ) AS interest_rank
+	FROM 
+		fresh_segments.interest_metrics AS t1
+	JOIN 
+		fresh_segments.interest_map AS t2
+	ON 
+		t1.interest_id::INT = t2.id
+	WHERE 
+		t1.month_year IS NOT NULL
+),
+get_top_10 AS (
+	SELECT
+	  month_year,
+	  interest_name,
+	  composition
+	FROM 
+		get_interest_rank
+	WHERE 
+		interest_rank = 1
+	ORDER BY 
+		composition DESC
+	LIMIT 10
 )
-SELECT
-	month_year,
-	count(interest_id) AS n_interests
-FROM
-	fresh_segments.interest_metrics
-WHERE
-	interest_id IN (
-		SELECT
-			interest_id
-		FROM
-			cte_total_months
-	)
-GROUP BY 
-	month_year
-ORDER BY
-	month_year;
+SELECT * 
+FROM 
+	get_top_10
+ORDER BY 
+	composition DESC;
 	
--- Results:
+/* Only displaying the top 10.
 	
-month_year|n_interests|
-----------+-----------+
-2018-07-01|        709|
-2018-08-01|        752|
-2018-09-01|        774|
-2018-10-01|        853|
-2018-11-01|        925|
-2018-12-01|        986|
-2019-01-01|        966|
-2019-02-01|       1072|
-2019-03-01|       1078|
-2019-04-01|       1035|
-2019-05-01|        827|
-2019-06-01|        804|
-2019-07-01|        836|
-2019-08-01|       1062|
+month_year|interest_name                    |composition|
+----------+---------------------------------+-----------+
+2018-12-01|Work Comes First Travelers       |       21.2|
+2018-07-01|Gym Equipment Owners             |      18.82|
+2018-07-01|Furniture Shoppers               |      17.44|
+2018-07-01|Luxury Retail Shoppers           |      17.19|
+2018-10-01|Luxury Boutique Hotel Researchers|      15.15|
+2018-12-01|Luxury Bedding Shoppers          |      15.05|
+2018-07-01|Shoe Shoppers                    |      14.91|
+2018-07-01|Cosmetics and Beauty Shoppers    |      14.23|
+2018-07-01|Luxury Hotel Guests              |       14.1|
+2018-07-01|Luxury Retail Researchers        |      13.97|
 
--- C.  Segment Analysis	
+*/
+
+/****************************************************
+ 
+	Part C: Segment Analysis
+
+****************************************************/
 
 -- 1. Using our filtered dataset by removing the interests with less than 6 months worth of data, which are the top 10 
 -- and bottom 10 interests which have the largest composition values in any month_year? Only use the maximum composition 
 -- value for each interest but you must keep the corresponding month_year
 
--- Since we have a few questions to answer, lets create a temp table of the filtered data.
-
-DROP TABLE IF EXISTS filtered_data;
-CREATE TEMP TABLE filtered_data AS (
-	WITH cte_total_months AS (
-		SELECT 
-			interest_id,
-			count(DISTINCT month_year) AS total_months
-		FROM
-			fresh_segments.interest_metrics
-		GROUP BY
-			interest_id
-		HAVING
-			count(DISTINCT month_year) >= 6
-	)
+WITH get_interest_rank AS (
 	SELECT
-		*
-	FROM
-		fresh_segments.interest_metrics
-	WHERE
-		interest_id IN (
-			SELECT
-				interest_id
-			FROM
-				cte_total_months
-		)	
-);
-
-
-WITH get_top_ranking AS (
-	SELECT
-		month_year,
-		interest_id,
-		ip.interest_name,
-		composition,
-		rank() OVER (ORDER BY composition desc) AS rnk
+	  t1.month_year,
+	  t2.interest_name,
+	  t1.composition,
+	  RANK() OVER (
+	  	PARTITION BY t2.interest_name
+	    ORDER BY composition DESC
+	  ) AS interest_rank
 	FROM 
-		filtered_data
-	JOIN
-		fresh_segments.interest_map AS ip
-	ON
-		interest_id::numeric = ip.id
-)
-SELECT
-	*
-FROM
-	get_top_ranking
-WHERE
-	rnk <= 10;
-
--- Results:
-
-month_year|interest_id|interest_name                    |composition|rnk|
-----------+-----------+---------------------------------+-----------+---+
-2018-12-01|21057      |Work Comes First Travelers       |       21.2|  1|
-2018-10-01|21057      |Work Comes First Travelers       |      20.28|  2|
-2018-11-01|21057      |Work Comes First Travelers       |      19.45|  3|
-2019-01-01|21057      |Work Comes First Travelers       |      18.99|  4|
-2018-07-01|6284       |Gym Equipment Owners             |      18.82|  5|
-2019-02-01|21057      |Work Comes First Travelers       |      18.39|  6|
-2018-09-01|21057      |Work Comes First Travelers       |      18.18|  7|
-2018-07-01|39         |Furniture Shoppers               |      17.44|  8|
-2018-07-01|77         |Luxury Retail Shoppers           |      17.19|  9|
-2018-10-01|12133      |Luxury Boutique Hotel Researchers|      15.15| 10|
-
-WITH get_bottom_ranking AS (
+		fresh_segments.interest_metrics AS t1
+	JOIN 
+		fresh_segments.interest_map AS t2
+	ON 
+		t1.interest_id::INT = t2.id
+	WHERE 
+		t1.month_year IS NOT NULL
+),
+get_top_10 AS (
 	SELECT
-		month_year,
-		interest_id,
-		ip.interest_name,
-		composition,
-		rank() OVER (ORDER BY composition asc) AS rnk
+	  month_year,
+	  interest_name,
+	  composition
 	FROM 
-		filtered_data
-	JOIN
-		fresh_segments.interest_map AS ip
-	ON
-		interest_id::numeric = ip.id
+		get_interest_rank
+	WHERE 
+		interest_rank = 1
+	ORDER BY 
+		composition DESC
+	LIMIT 10
+),
+get_bottom_10 AS (
+	SELECT
+	  month_year,
+	  interest_name,
+	  composition
+	FROM 
+		get_interest_rank
+	WHERE 
+		interest_rank = 1
+	ORDER BY 
+		composition ASC
+	LIMIT 10
 )
-SELECT
-	*
-FROM
-	get_bottom_ranking
-WHERE
-	rnk <= 10;
+SELECT * 
+FROM 
+	get_top_10
+UNION
+SELECT * 
+FROM 
+	get_bottom_10
+ORDER BY 
+	composition DESC;
 
--- Results:
+/*
 
-month_year|interest_id|interest_name               |composition|rnk|
-----------+-----------+----------------------------+-----------+---+
-2019-05-01|45524      |Mowing Equipment Shoppers   |       1.51|  1|
-2019-06-01|34083      |New York Giants Fans        |       1.52|  2|
-2019-06-01|35742      |Disney Fans                 |       1.52|  2|
-2019-05-01|20768      |Beer Aficionados            |       1.52|  2|
-2019-05-01|39336      |Philadelphia 76ers Fans     |       1.52|  2|
-2019-05-01|4918       |Gastrointestinal Researchers|       1.52|  2|
-2019-04-01|44449      |United Nations Donors       |       1.52|  2|
-2019-05-01|6127       |LED Lighting Shoppers       |       1.53|  8|
-2019-06-01|6314       |Online Directory Searchers  |       1.53|  8|
-2019-05-01|36877      |Crochet Enthusiasts         |       1.53|  8|
+month_year|interest_name                       |composition|
+----------+------------------------------------+-----------+
+2018-12-01|Work Comes First Travelers          |       21.2|
+2018-07-01|Gym Equipment Owners                |      18.82|
+2018-07-01|Furniture Shoppers                  |      17.44|
+2018-07-01|Luxury Retail Shoppers              |      17.19|
+2018-10-01|Luxury Boutique Hotel Researchers   |      15.15|
+2018-12-01|Luxury Bedding Shoppers             |      15.05|
+2018-07-01|Shoe Shoppers                       |      14.91|
+2018-07-01|Cosmetics and Beauty Shoppers       |      14.23|
+2018-07-01|Luxury Hotel Guests                 |       14.1|
+2018-07-01|Luxury Retail Researchers           |      13.97|
+2018-07-01|Readers of Jamaican Content         |       1.86|
+2019-02-01|Automotive News Readers             |       1.84|
+2018-07-01|Comedy Fans                         |       1.83|
+2019-08-01|World of Warcraft Enthusiasts       |       1.82|
+2018-08-01|Miami Heat Fans                     |       1.81|
+2018-07-01|Online Role Playing Game Enthusiasts|       1.73|
+2019-08-01|Hearthstone Video Game Fans         |       1.66|
+2018-09-01|Scifi Movie and TV Enthusiasts      |       1.61|
+2018-09-01|Action Movie and TV Enthusiasts     |       1.59|
+2019-03-01|The Sims Video Game Fans            |       1.57|
+
+*/
 
 -- 2. Which 5 interests had the lowest average ranking value?
 
-WITH get_lowest_avgs AS (
-	SELECT
-		ip.interest_name,
-		round(avg(ranking)::numeric, 2) AS avg_ranking,
-		rank() OVER (ORDER BY avg(ranking) desc) AS rnk
-	FROM 
-		filtered_data
-	JOIN
-		fresh_segments.interest_map AS ip
-	ON
-		interest_id::numeric = ip.id
-	GROUP BY
-		ip.interest_name
-)
 SELECT
-	*
-FROM
-	get_lowest_avgs
-WHERE
-	rnk <= 5;
+ 	t2.interest_name,
+  	ROUND(AVG(t1.ranking), 1) AS average_ranking,
+  	COUNT(*) AS record_count
+FROM 
+	fresh_segments.interest_metrics AS t1
+JOIN 
+	fresh_segments.interest_map AS t2
+ON 
+	t1.interest_id::INT = t2.id
+WHERE 
+	t1.month_year IS NOT NULL
+GROUP BY
+  	t2.interest_name
+ORDER BY 
+	average_ranking
+LIMIT 5;
 
--- Results:
+/*
 
-interest_name                                     |avg_ranking|rnk|
---------------------------------------------------+-----------+---+
-League of Legends Video Game Fans                 |    1037.29|  1|
-Computer Processor and Data Center Decision Makers|     974.13|  2|
-Astrology Enthusiasts                             |     968.50|  3|
-Medieval History Enthusiasts                      |     961.71|  4|
-Budget Mobile Phone Researchers                   |     961.00|  5|
+interest_name                 |average_ranking|record_count|
+------------------------------+---------------+------------+
+Winter Apparel Shoppers       |            1.0|           9|
+Fitness Activity Tracker Users|            4.1|           9|
+Mens Shoe Shoppers            |            5.9|          14|
+Elite Cycling Gear Shoppers   |            7.8|           5|
+Shoe Shoppers                 |            9.4|          14|
+
+*/
 
 -- 3. Which 5 interests had the largest standard deviation in their percentile_ranking value?
 
-WITH get_std_dev AS (
-	SELECT
-		ip.interest_name,
-		round(stddev(percentile_ranking)::numeric, 2) AS std_dev,
-		rank() OVER (ORDER BY stddev(percentile_ranking) desc) AS rnk
-	FROM 
-		filtered_data
-	JOIN
-		fresh_segments.interest_map AS ip
-	ON
-		interest_id::numeric = ip.id
-	GROUP BY
-		ip.interest_name
-)
 SELECT
-	*
-FROM
-	get_std_dev
-WHERE
-	rnk <= 5;
+	t1.interest_id,
+ 	t2.interest_name,
+  	ROUND(STDDEV(t1.percentile_ranking)::NUMERIC, 1) AS stddev_ranking,
+  	MAX(t1.percentile_ranking) AS max_ranking,
+  	MIN(t1.percentile_ranking) AS min_ranking,
+  	COUNT(*) AS record_count
+FROM 
+	fresh_segments.interest_metrics AS t1
+JOIN 
+	fresh_segments.interest_map AS t2
+ON 
+	t1.interest_id::INT = t2.id
+WHERE 
+	t1.month_year IS NOT NULL
+GROUP BY
+	t1.interest_id,
+  	t2.interest_name
+ORDER BY 
+	stddev_ranking DESC NULLS LAST
+LIMIT 5;
 
--- Results:
+/*
 
-interest_name                         |std_dev|rnk|
---------------------------------------+-------+---+
-Techies                               |  30.18|  1|
-Entertainment Industry Decision Makers|  28.97|  2|
-Oregon Trip Planners                  |  28.32|  3|
-Personalized Gift Shoppers            |  26.24|  4|
-Tampa and St Petersburg Trip Planners |  25.61|  5|
+interest_id|interest_name                         |stddev_ranking|max_ranking|min_ranking|record_count|
+-----------+--------------------------------------+--------------+-----------+-----------+------------+
+6260       |Blockbuster Movie Fans                |          41.3|      60.63|       2.26|           2|
+131        |Android Fans                          |          30.7|      75.03|       4.84|           5|
+150        |TV Junkies                            |          30.4|      93.28|      10.01|           5|
+23         |Techies                               |          30.2|      86.69|       7.92|           6|
+20764      |Entertainment Industry Decision Makers|          29.0|      86.15|      11.23|           6|
+
+*/
 
 -- 4. For the 5 interests found in the previous question - what was minimum and maximum percentile_ranking values for each interest 
 -- and its corresponding year_month value? Can you describe what is happening for these 5 interests?
 
-WITH get_std_dev AS (
-	SELECT
-		interest_id,
-		ip.interest_name,
-		round(stddev(percentile_ranking)::numeric, 2) AS std_dev,
-		rank() OVER (ORDER BY stddev(percentile_ranking) desc) AS rnk
-	FROM 
-		filtered_data
-	JOIN
-		fresh_segments.interest_map AS ip
-	ON
-		interest_id::numeric = ip.id
-	GROUP BY
-		interest_id,
-		ip.interest_name
-),
--- Reduce the list down to the lowest 5
-get_interest_id AS (
-	SELECT
-		*
-	FROM
-		get_std_dev
-	WHERE
-		rnk <= 5
-),
--- Get the min and max values via rank or row_number for values in the previous CTE (the lowest 5)
-get_min_max as (
-	SELECT
-		month_year,
-		interest_id,
-		percentile_ranking,
-		rank() over(PARTITION BY interest_id ORDER BY percentile_ranking) AS min_rank,
-		rank() over(PARTITION BY interest_id ORDER BY percentile_ranking desc) AS max_rank
-	FROM
-		filtered_data
-	WHERE 
-		interest_id IN (
-			SELECT
-				interest_id
-			FROM 
-				get_interest_id
-		)
-)
--- Join the map table to get the interest_name and select all values with the rank of one.
-SELECT
-	gmm.month_year,
-	ip.interest_name,
-	percentile_ranking
-FROM
-	get_min_max AS gmm
-JOIN
-	fresh_segments.interest_map AS ip  ON ip.id = gmm.interest_id::numeric
-WHERE
-	min_rank = 1
-OR
-	max_rank = 1
-ORDER BY
-	interest_id, percentile_ranking;
+
 	
 -- Results:
 	
-month_year|interest_name                         |percentile_ranking|
-----------+--------------------------------------+------------------+
-2019-03-01|Tampa and St Petersburg Trip Planners |              4.84|
-2018-07-01|Tampa and St Petersburg Trip Planners |             75.03|
-2019-08-01|Entertainment Industry Decision Makers|             11.23|
-2018-07-01|Entertainment Industry Decision Makers|             86.15|
-2019-08-01|Techies                               |              7.92|
-2018-07-01|Techies                               |             86.69|
-2019-07-01|Oregon Trip Planners                  |               2.2|
-2018-11-01|Oregon Trip Planners                  |             82.44|
-2019-06-01|Personalized Gift Shoppers            |               5.7|
-2019-03-01|Personalized Gift Shoppers            |             73.15|
+
 
 -- 5. How would you describe our customers in this segment based off their composition and ranking values? 
 -- What sort of products or services should we show to these customers and what should we avoid? 
 
-month_year|interest_id|interest_name                    |composition|rnk|
-----------+-----------+---------------------------------+-----------+---+
-2018-12-01|21057      |Work Comes First Travelers       |       21.2|  1|
-2018-10-01|21057      |Work Comes First Travelers       |      20.28|  2|
-2018-11-01|21057      |Work Comes First Travelers       |      19.45|  3|
-2019-01-01|21057      |Work Comes First Travelers       |      18.99|  4|
-2018-07-01|6284       |Gym Equipment Owners             |      18.82|  5|
-2019-02-01|21057      |Work Comes First Travelers       |      18.39|  6|
-2018-09-01|21057      |Work Comes First Travelers       |      18.18|  7|
-2018-07-01|39         |Furniture Shoppers               |      17.44|  8|
-2018-07-01|77         |Luxury Retail Shoppers           |      17.19|  9|
-2018-10-01|12133      |Luxury Boutique Hotel Researchers|      15.15| 10|
+
 
 /*
  * Based off of the highest composition values, the average customer appears to be an extroverted, affluent
@@ -880,7 +759,11 @@ month_year|interest_id|interest_name                    |composition|rnk|
  * 
  */
 
--- C.  Index Analysis
+/****************************************************
+ 
+	Part D: Index Analysis
+
+****************************************************/
 
 -- The index_value is a measure which can be used to reverse calculate the average composition for Fresh Segments’ clients.
 
@@ -890,16 +773,19 @@ month_year|interest_id|interest_name                    |composition|rnk|
 
 WITH get_top_avg_composition AS (
 	SELECT
-		imet.month_year,
-		imet.interest_id,
-		imap.interest_name,
-		round((imet.composition / imet.index_value)::numeric, 2) AS avg_composition,
-		rank() over(PARTITION BY month_year ORDER BY round((imet.composition / imet.index_value)::numeric, 2) desc) AS rnk
+		t1.month_year,
+		t1.interest_id,
+		t2.interest_name,
+		t1.composition / t1.index_value::NUMERIC AS avg_composition,
+		RANK() OVER(
+			PARTITION BY month_year 
+			ORDER BY ROUND((t1.composition / t1.index_value)::NUMERIC, 2) DESC) AS rnk
 	FROM
-		fresh_segments.interest_metrics AS imet
+		fresh_segments.interest_metrics AS t1
 	JOIN
-		fresh_segments.interest_map AS imap
-	ON imap.id = imet.interest_id::NUMERIC
+		fresh_segments.interest_map AS t2
+	ON 
+		t2.id = t1.interest_id::NUMERIC
 	ORDER BY
 		month_year, avg_composition DESC
 )
@@ -910,44 +796,46 @@ SELECT
 FROM
 	get_top_avg_composition
 WHERE
-	rnk <= 10;
-	
--- !!! For this exercise, I will limit it to the top 5 to show more result values !!!
+	rnk <= 5
+ORDER BY
+	month_year
+LIMIT 15;
 
--- Results:
+/*
 
-month_year|interest_name                                       |avg_composition|
-----------+----------------------------------------------------+---------------+
-2018-07-01|Las Vegas Trip Planners                             |           7.36|
-2018-07-01|Gym Equipment Owners                                |           6.94|
-2018-07-01|Cosmetics and Beauty Shoppers                       |           6.78|
-2018-07-01|Luxury Retail Shoppers                              |           6.61|
-2018-07-01|Furniture Shoppers                                  |           6.51|
-2018-08-01|Las Vegas Trip Planners                             |           7.21|  <-- New Month/Year
-2018-08-01|Gym Equipment Owners                                |           6.62|
-2018-08-01|Luxury Retail Shoppers                              |           6.53|
-2018-08-01|Furniture Shoppers                                  |           6.30|
-2018-08-01|Cosmetics and Beauty Shoppers                       |           6.28|
-2018-09-01|Work Comes First Travelers                          |           8.26|  <-- New Month/Year
-2018-09-01|Readers of Honduran Content                         |           7.60|
-2018-09-01|Alabama Trip Planners                               |           7.27|
-2018-09-01|Luxury Bedding Shoppers                             |           7.04|
-2018-09-01|Nursing and Physicians Assistant Journal Researchers|           6.70|
+Query displays only the top 5 per month and limiting results to 15 to show
+different month_year values.
+
+month_year|interest_name                |avg_composition   |
+----------+-----------------------------+------------------+
+2018-07-01|Las Vegas Trip Planners      |7.3571428571428585|
+2018-07-01|Gym Equipment Owners         |6.9446494464944655|
+2018-07-01|Cosmetics and Beauty Shoppers| 6.776190476190476|
+2018-07-01|Luxury Retail Shoppers       | 6.611538461538462|
+2018-07-01|Furniture Shoppers           | 6.507462686567164|
+2018-07-01|Asian Food Enthusiasts       |6.1000000000000005|
+2018-07-01|Recently Retired Individuals | 5.721893491124261|
+2018-07-01|Family Adventures Travelers  |4.8474576271186445|
+2018-07-01|Work Comes First Travelers   | 4.802631578947368|
+2018-07-01|HDTV Researchers             | 4.712264150943396|
+
+*/
 
 -- 2. For all of these top 10 interests - which interest appears the most often?
 
 WITH get_top_avg_composition AS (
 	SELECT
-		imet.month_year,
-		imet.interest_id,
-		imap.interest_name,
-		round((imet.composition / imet.index_value)::numeric, 2) AS avg_composition,
-		rank() over(PARTITION BY month_year ORDER BY round((imet.composition / imet.index_value)::numeric, 2) desc) AS rnk
+		t1.month_year,
+		t1.interest_id,
+		t2.interest_name,
+		ROUND((t1.composition / t1.index_value)::NUMERIC, 2) AS avg_composition,
+		RANK() over(PARTITION BY month_year ORDER BY ROUND((t1.composition / t1.index_value)::NUMERIC, 2) desc) AS rnk
 	FROM
-		fresh_segments.interest_metrics AS imet
+		fresh_segments.interest_metrics AS t1
 	JOIN
-		fresh_segments.interest_map AS imap
-	ON imap.id = imet.interest_id::NUMERIC
+		fresh_segments.interest_map AS t2
+	ON 
+		t2.id = t1.interest_id::NUMERIC
 	ORDER BY
 		month_year, avg_composition DESC
 ),
@@ -964,17 +852,19 @@ get_top_ten AS (
 SELECT
 	interest_name
 FROM
-	(SELECT
+	(
+	SELECT
 		interest_name,
-		rank() OVER(ORDER BY count(*) DESC) AS rnk
+		RANK() OVER(
+			ORDER BY COUNT(*) DESC) AS rnk
 	FROM
 		get_top_ten
 	GROUP BY
-		interest_name) AS TEMP
+		interest_name) AS tmp
 WHERE 
 	rnk = 1;
 
--- Results:
+/*
 
 interest_name           |
 ------------------------+
@@ -982,27 +872,32 @@ Luxury Bedding Shoppers |
 Alabama Trip Planners   |
 Solar Energy Researchers|
 
+*/
+
 -- 3. What is the average of the average composition for the top 10 interests for each month?
 
 WITH get_top_avg_composition AS (
 	SELECT
-		imet.month_year,
-		imet.interest_id,
-		imap.interest_name,
-		round((imet.composition / imet.index_value)::numeric, 2) AS avg_composition,
-		rank() over(PARTITION BY month_year ORDER BY round((imet.composition / imet.index_value)::numeric, 2) desc) AS rnk
+		t1.month_year,
+		t1.interest_id,
+		t2.interest_name,
+		ROUND((t1.composition / t1.index_value)::NUMERIC, 2) AS avg_composition,
+		RANK() OVER (
+			PARTITION BY month_year 
+			ORDER BY ROUND((t1.composition / t1.index_value)::NUMERIC, 2) DESC) AS rnk
 	FROM
-		fresh_segments.interest_metrics AS imet
+		fresh_segments.interest_metrics AS t1
 	JOIN
-		fresh_segments.interest_map AS imap
-	ON imap.id = imet.interest_id::NUMERIC
+		fresh_segments.interest_map AS t2
+	ON 
+		t2.id = t1.interest_id::NUMERIC
 	ORDER BY
 		month_year, avg_composition DESC
 ),
 get_monthly_avg AS (
 	SELECT
 		month_year,
-		round(avg(avg_composition), 2) AS monthly_cumulative_avg
+		ROUND(avg(avg_composition), 2) AS monthly_cumulative_avg
 	FROM
 		get_top_avg_composition
 	WHERE
@@ -1015,7 +910,7 @@ SELECT
 FROM
 	get_monthly_avg;
 
--- Results:
+/*
 
 month_year|monthly_cumulative_avg|
 ----------+----------------------+
@@ -1031,22 +926,29 @@ month_year|monthly_cumulative_avg|
 2019-04-01|                  5.75|
 2019-05-01|                  3.54|
 2019-06-01|                  2.43|
+2019-07-01|                  2.77|
+2019-08-01|                  2.63|
+
+*/
 
 -- 4. What is the 3 month rolling average of the max average composition value from September 2018 to August 2019 
 -- and include the previous top ranking interests in the same output shown below.
 
 WITH get_top_avg_composition AS (
 	SELECT
-		imet.month_year,
-		imet.interest_id,
-		imap.interest_name,
-		round((imet.composition / imet.index_value)::numeric, 2) AS avg_composition,
-		rank() over(PARTITION BY month_year ORDER BY round((imet.composition / imet.index_value)::numeric, 2) desc) AS rnk
+		t1.month_year,
+		t1.interest_id,
+		t2.interest_name,
+		ROUND((t1.composition / t1.index_value)::NUMERIC, 2) AS avg_composition,
+		RANK() OVER(
+			PARTITION BY month_year 
+			ORDER BY ROUND((t1.composition / t1.index_value)::numeric, 2) DESC) AS rnk
 	FROM
-		fresh_segments.interest_metrics AS imet
+		fresh_segments.interest_metrics AS t1
 	JOIN
-		fresh_segments.interest_map AS imap
-	ON imap.id = imet.interest_id::NUMERIC
+		fresh_segments.interest_map AS t2
+	ON 
+		t2.id = t1.interest_id::NUMERIC
 	ORDER BY
 		month_year, avg_composition DESC
 ),
@@ -1055,7 +957,9 @@ get_moving_avg AS (
 		month_year,
 		interest_name,
 		avg_composition AS max_index_composition,
-		round(avg(avg_composition) OVER(ORDER BY month_year ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 2) AS "3_month_moving_avg"
+		ROUND(AVG(avg_composition) OVER ( 
+			ORDER BY month_year 
+			ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 2) AS "3_month_moving_avg"
 	FROM
 		get_top_avg_composition
 	WHERE
@@ -1064,10 +968,14 @@ get_moving_avg AS (
 get_lag_avg AS (
 	SELECT
 		*,
-		lag(interest_name, 1) OVER (ORDER BY month_year) interest_1_name,
-		lag(interest_name, 2) OVER (ORDER BY month_year) interest_2_name,
-		lag(max_index_composition, 1) OVER (ORDER BY month_year) interest_1_avg,
-		lag(max_index_composition, 2) OVER (ORDER BY month_year) interest_2_avg
+		LAG(interest_name, 1) OVER (
+			ORDER BY month_year) interest_1_name,
+		LAG(interest_name, 2) OVER (
+			ORDER BY month_year) interest_2_name,
+		LAG(max_index_composition, 1) OVER (
+			ORDER BY month_year) interest_1_avg,
+		LAG(max_index_composition, 2) OVER (
+			ORDER BY month_year) interest_2_avg
 	FROM 
 		get_moving_avg
 )
