@@ -69,13 +69,13 @@ SELECT
 	-- We must not only convert to date type, we must also change the datestyle
 	-- or we get  'ERROR: date/time field value out of range'
 	TO_DATE(week_date, 'dd/mm/yy') AS week_day,
-	DATE_PART('week', TO_DATE(week_date, 'dd/mm/yy'))::int AS week_number,
-	DATE_PART('month', TO_DATE(week_date, 'dd/mm/yy'))::int AS month_number,
-	DATE_PART('year', TO_DATE(week_date, 'dd/mm/yy'))::int AS calendar_year,
+	DATE_PART('week', TO_DATE(week_date, 'dd/mm/yy'))::INT AS week_number,
+	DATE_PART('month', TO_DATE(week_date, 'dd/mm/yy'))::INT AS month_number,
+	DATE_PART('year', TO_DATE(week_date, 'dd/mm/yy'))::INT AS calendar_year,
 	region,
 	platform,
 	CASE 
-		WHEN segment IS NULL OR trim(segment) = 'null' THEN 'unknown'
+		WHEN segment IS NULL OR TRIM(segment) = 'null' THEN 'unknown'
 		ELSE segment
 	END AS segment,
 	CASE 
@@ -126,7 +126,7 @@ week_day  |week_number|month_number|calendar_year|region|platform|segment|age_ba
 -- 1. What day of the week is used for each week_date value?
 
 SELECT DISTINCT 
-	DATE_PART('dow', week_day)::int AS day_of_week,
+	DATE_PART('dow', week_day)::INT AS day_of_week,
 	TO_CHAR(week_day, 'Day') AS day_of_week_name
 FROM 
 	clean_weekly_sales;
