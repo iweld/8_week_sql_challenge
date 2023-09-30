@@ -1,3 +1,13 @@
+## Danny's Diner
+### SQL Case Study #1
+
+**Author**: Jaime M. Shaker <br />
+**Email**: jaime.m.shaker@gmail.com <br />
+**Website**: https://www.shaker.dev <br />
+**LinkedIn**: https://www.linkedin.com/in/jaime-shaker/  <br />
+
+:exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:
+
 ### Introduction
 Danny seriously loves Japanese food so in the beginning of 2021, he decides to embark upon a risky venture and opens up a cute little restaurant that sells his 3 favourite foods: sushi, curry and ramen.
 
@@ -15,7 +25,7 @@ Three key datasets for this case study
 - <strong>Members</strong>: The members table captures the join_date when a customer_id joined the beta version of the Danny’s Diner loyalty program.
 
 ### Case Study
-[Case Study #1 - Danny's Diner: SQL Solutions](./dannys_diner.md)
+[Case Study #1 - Danny's Diner: SQL Solutions](./dannys_diner_solutions.md)
 
 <!--
 ### Entity Relationship Diagram
