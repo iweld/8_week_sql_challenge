@@ -1,12 +1,17 @@
+## Pizza Runner
+### SQL Case Study #2
+
+**Author**: Jaime M. Shaker <br />
+**Email**: jaime.m.shaker@gmail.com <br />
+**Website**: https://www.shaker.dev <br />
+**LinkedIn**: https://www.linkedin.com/in/jaime-shaker/  <br />
+
 ## Introduction
 Danny was scrolling through his Instagram feed when something really caught his eye - “80s Retro Styling and Pizza Is The Future!”
 
 Danny was sold on the idea, but he knew that pizza alone was not going to help him get seed funding to expand his new Pizza Empire - so he had one more genius idea to combine with it - he was going to Uberize it - and so Pizza Runner was launched!
 
 Danny started by recruiting “runners” to deliver fresh pizza from Pizza Runner Headquarters (otherwise known as Danny’s house) and also maxed out his credit card to pay freelance developers to build a mobile app to accept orders from customers.
-
-## Case Study
-[Case Study #2 - Pizza Runner: SQL Solutions](./pizza_runner_solutions.md)
 
 ## Dataset
 Key datasets for this case study
@@ -30,6 +35,9 @@ There are some known data issues with few tables. Data cleaning was performed an
 - In the distance column, there are null values. It contains unit - km. The 'km' must also be stripped
 - In the duration column, there are null values. The 'minutes', 'mins' 'minute' must be stripped
 - In the cancellation column, there are blank spaces and null values.
+
+## Case Study
+[Case Study #2 - Pizza Runner: SQL Solutions](./pizza_runner_solutions.md)
 
 <!--
 ### Entity Relationship Diagram

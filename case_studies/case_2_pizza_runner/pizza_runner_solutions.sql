@@ -141,12 +141,12 @@ CREATE TEMP TABLE clean_runner_orders AS (
 			WHEN pickup_time LIKE 'null' THEN NULL
 			ELSE pickup_time
 		-- Cast results to timestamp
-		END::timestamp AS pickup_time,
+		END::TIMESTAMP AS pickup_time,
 		-- Return null value if both arguments are equal
 		-- Use regex to match only numeric values and decimal point.
 		-- Cast to numeric datatype
-		NULLIF(regexp_replace(distance, '[^0-9.]', '', 'g'), '')::NUMERIC AS distance,
-		NULLIF(regexp_replace(duration, '[^0-9.]', '', 'g'), '')::NUMERIC AS duration,
+		NULLIF(REGEXP_REPLACE(distance, '[^0-9.]', '', 'g'), '')::NUMERIC AS distance,
+		NULLIF(REGEXP_REPLACE(duration, '[^0-9.]', '', 'g'), '')::NUMERIC AS duration,
 		-- Cast to NULL datatype if string equals empty, null or Nan.
 		CASE
 			WHEN cancellation LIKE 'null'
@@ -410,9 +410,9 @@ number_of_pizzas|
 
 SELECT
 	-- Cast to TEXT to remove .0
-	EXTRACT('hour' FROM order_time::timestamp)::TEXT AS hour_of_day_24h,
+	EXTRACT('hour' FROM order_time::TIMESTAMP)::TEXT AS hour_of_day_24h,
 	-- Adding the 12 hour time format
-	TO_CHAR(order_time::timestamp, 'HH:AM') AS hour_of_day_12h,
+	TO_CHAR(order_time::TIMESTAMP, 'HH:AM') AS hour_of_day_12h,
 	COUNT(*) AS number_of_pizzas
 FROM 
 	clean_customer_orders
@@ -520,7 +520,7 @@ WITH runner_time AS (
 		t1.pickup_time IS NOT NULL
 )
 SELECT
-	EXTRACT('minutes' FROM avg(runner_arrival_time)) AS avg_pickup_time
+	EXTRACT('minutes' FROM AVG(runner_arrival_time)) AS avg_pickup_time
 FROM
 	runner_time;
 	
@@ -738,7 +738,7 @@ customer_id|order_id|runner_id|n_pizzas|distance|duration|avg_speed_kph|avg_spee
 /* 
  * Noticable Trend
  *  
- * As long as weather and road conditions are not a factor, the runner are relatively slow drivers.
+ * As long as weather and road conditions are not a factor, the runners are relatively slow drivers.
  *   
 */      
        
@@ -826,7 +826,7 @@ Vegetarian|Tomatoes    |
 
 */
 
--- Or Flattened list of all toppings per pizza
+-- Or a flattened list of all toppings per pizza
 
 WITH pizza_toppings_recipe AS (
 	SELECT
@@ -1286,11 +1286,17 @@ cte_extras AS (
 ),
 -- now we can perform an except and a union all on the respective CTEs
 cte_combined_orders AS (
-	SELECT * FROM cte_base_toppings
+	SELECT * 
+	FROM 
+		cte_base_toppings
   	EXCEPT
-  	SELECT * FROM cte_exclusions
+  	SELECT * 
+  	FROM 
+  		cte_exclusions
   	UNION ALL
-  	SELECT * FROM cte_extras
+  	SELECT * 
+  	FROM 
+  		cte_extras
 )
 -- perform aggregation on topping_id and join to get topping names
 SELECT
@@ -1298,7 +1304,7 @@ SELECT
   	COUNT(*) AS topping_count
 FROM 
 	cte_combined_orders AS t1
-INNER JOIN 
+JOIN 
 	pizza_runner.pizza_toppings AS t2
 ON 
 	t1.topping_id = t2.topping_id
