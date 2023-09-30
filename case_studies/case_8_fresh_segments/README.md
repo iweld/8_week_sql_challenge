@@ -8,6 +8,9 @@ In particular - the composition and rankings for different interests are provide
 ## Problem Statement
 Danny has asked for your assistance to analyse aggregated metrics for an example client and provide some high level insights about the customer list and their interests.
 
+## Case Study
+[Case Study #8 - Fresh Segments: SQL Solutions](./fresh_segments_solutions.md)
+
 ## Datasets used
 For this case study there is a total of 2 datasets which you will need to use to solve the questions.
 - <strong>Interest_Metrics</strong>: This table contains information about aggregated interest metrics for a specific major client of Fresh Segments which makes up a large proportion of their customer base.

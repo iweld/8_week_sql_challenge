@@ -11,6 +11,9 @@ The key business question he wants you to help him answer are the following:
 - Which platform, region, segment and customer types were the most impacted by this change?
 - What can we do about future introduction of similar sustainability updates to the business to minimise impact on sales?
 
+## Case Study
+[Case Study #5 - Data Mart: SQL Solutions](./data_mart_solutions.md)
+
 ## Dataset
 For this case study there is only a single table: **weekly_sales**
 

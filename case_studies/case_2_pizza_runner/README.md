@@ -5,6 +5,9 @@ Danny was sold on the idea, but he knew that pizza alone was not going to help h
 
 Danny started by recruiting “runners” to deliver fresh pizza from Pizza Runner Headquarters (otherwise known as Danny’s house) and also maxed out his credit card to pay freelance developers to build a mobile app to accept orders from customers.
 
+## Case Study
+[Case Study #2 - Pizza Runner: SQL Solutions](./pizza_runner_solutions.md)
+
 ## Dataset
 Key datasets for this case study
 - **runners** : The table shows the registration_date for each new runner
