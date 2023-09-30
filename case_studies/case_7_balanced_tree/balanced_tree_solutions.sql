@@ -408,7 +408,9 @@ WITH top_ranking AS
 		t1.segment_name,
 		t1.product_name,
 		SUM(t2.qty) AS total_quantity,
-		RANK() OVER (PARTITION BY t1.segment_id ORDER BY SUM(t2.qty) DESC) AS rnk
+		RANK() OVER (
+			PARTITION BY t1.segment_id 
+			ORDER BY SUM(t2.qty) DESC) AS rnk
 	FROM
 		balanced_tree.product_details AS t1
 	JOIN
@@ -478,7 +480,9 @@ WITH top_ranking AS
 		t1.category_name,
 		t1.product_name,
 		SUM(t2.qty) AS total_quantity,
-		RANK() OVER (PARTITION BY t1.category_id ORDER BY SUM(t2.qty) desc) AS rnk
+		RANK() OVER (
+			PARTITION BY t1.category_id 
+			ORDER BY SUM(t2.qty) DESC) AS rnk
 	FROM
 		balanced_tree.product_details AS t1
 	JOIN
@@ -538,7 +542,8 @@ SELECT
 	product_id,
 	product_name,
 	total_revenue,
-	ROUND(100 * (total_revenue / SUM(total_revenue)OVER(PARTITION BY segment_id)), 2) AS revenue_percentage
+	ROUND(100 * (total_revenue / SUM(total_revenue) OVER (
+		PARTITION BY segment_id)), 2) AS revenue_percentage
 FROM
     get_total_revenue;
 
@@ -590,7 +595,8 @@ SELECT
 	segment_id,
 	segment_name,
 	total_revenue,
-	ROUND(100 * (total_revenue / SUM(total_revenue)OVER(PARTITION BY category_id)), 2) AS revenue_percentage
+	ROUND(100 * (total_revenue / SUM(total_revenue) OVER (
+		PARTITION BY category_id)), 2) AS revenue_percentage
 FROM
 	get_total_revenue;
 
@@ -628,7 +634,7 @@ SELECT
 	category_id,
 	category_name,
 	total_revenue,
-	ROUND(100 * (total_revenue / SUM(total_revenue)OVER()), 2) AS revenue_percentage
+	ROUND(100 * (total_revenue / SUM(total_revenue) OVER ()), 2) AS revenue_percentage
 FROM
      get_gender_revenue;       
          
