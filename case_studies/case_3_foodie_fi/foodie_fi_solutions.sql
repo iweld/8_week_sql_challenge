@@ -384,7 +384,7 @@ WITH get_row_number AS (
 		plan_name,
 		plan_id,
 		start_date,
-		ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY plan_id desc) AS rn
+		ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY plan_id DESC) AS rn
 	FROM 
 		subscription_plans
 	WHERE 
@@ -626,7 +626,9 @@ CREATE TEMP TABLE customer_payments AS (
 			WHEN plan_id = 3 THEN 199.00
 			ELSE 0
 		END AS amount,
-		LEAD(plan_name) OVER (PARTITION BY customer_id ORDER BY start_date) AS next_plan
+		LEAD(plan_name) OVER (
+			PARTITION BY customer_id 
+			ORDER BY start_date) AS next_plan
 	FROM 
 		subscription_plans
 	WHERE 
@@ -644,14 +646,22 @@ SELECT
 	CASE
 		WHEN rn1 > rn2
 			-- If a customer upgrades
-			AND LAG(plan_id) OVER (PARTITION BY customer_id ORDER BY payment_date) < plan_id
+			AND LAG(plan_id) OVER (
+				PARTITION BY customer_id 
+				ORDER BY payment_date) < plan_id
 			-- Make sure upgrades are within the same month or no discounted payment
-			AND EXTRACT(MONTH FROM LAG(payment_date) OVER (PARTITION BY customer_id ORDER BY payment_date)) = EXTRACT('month' FROM payment_date)
+			AND EXTRACT(MONTH FROM LAG(payment_date) OVER (
+				PARTITION BY customer_id 
+				ORDER BY payment_date)) = EXTRACT('month' FROM payment_date)
 		-- Discount the current months payment from first month payment after upgrade
-		THEN amount - LAG(amount) OVER (PARTITION BY customer_id ORDER BY payment_date)
+		THEN 
+			amount - LAG(amount) OVER (
+				PARTITION BY customer_id 
+				ORDER BY payment_date)
 		ELSE amount
 	END AS amount,
-	ROW_NUMBER() OVER (PARTITION BY customer_id) AS payment_ord
+	ROW_NUMBER() OVER (
+		PARTITION BY customer_id) AS payment_ord
 FROM
 	(SELECT
 		customer_id,
@@ -659,8 +669,12 @@ FROM
 		plan_name,
 		GENERATE_SERIES(start_date, end_date, '1 month')::DATE AS payment_date,
 		amount,
-		ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY start_date) AS rn1,
-		ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY start_date DESC) AS rn2
+		ROW_NUMBER() OVER (
+			PARTITION BY customer_id 
+			ORDER BY start_date) AS rn1,
+		ROW_NUMBER() OVER (
+			PARTITION BY customer_id 
+			ORDER BY start_date DESC) AS rn2
 	from
 		(SELECT
 			customer_id,

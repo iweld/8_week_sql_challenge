@@ -1,12 +1,17 @@
+## Foodie-Fi
+### SQL Case Study #3
+
+**Author**: Jaime M. Shaker <br />
+**Email**: jaime.m.shaker@gmail.com <br />
+**Website**: https://www.shaker.dev <br />
+**LinkedIn**: https://www.linkedin.com/in/jaime-shaker/  <br />
+
 ## Introduction
 Subscription based businesses are super popular and Danny realised that there was a large gap in the market - he wanted to create a new streaming service that only had food related content - something like Netflix but with only cooking shows!
 
 Danny finds a few smart friends to launch his new startup Foodie-Fi in 2020 and started selling monthly and annual subscriptions, giving their customers unlimited on-demand access to exclusive food videos from around the world!
 
 Danny created Foodie-Fi with a data driven mindset and wanted to ensure all future investment decisions and new features were decided using data. This case study focuses on using subscription style digital data to answer important business questions.
-
-## Case Study
-[Case Study #3 - Foodie-Fi: SQL Solutions](./foodie_fi_solutions.md)
 
 ## Datasets
 
@@ -23,6 +28,9 @@ There are 5 customer plans.
 - If customers *downgrade* from a pro plan or *cancel their subscription* - the higher plan will remain in place until the period is over - the start_date in the subscriptions table will reflect the date that the actual plan changes.
 - When customers *upgrade* their account from a basic plan to a pro or annual pro plan - the higher plan will take effect straightaway.
 - When customers *churn* - they will keep their access until the end of their current billing period but the start_date will be technically the day they decided to cancel their service.
+
+## Case Study
+[Case Study #3 - Foodie-Fi: SQL Solutions](./foodie_fi_solutions.md)
 
 <!--
 ### Entity Relationship Diagram
