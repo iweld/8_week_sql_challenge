@@ -3,20 +3,20 @@ Case study questions and answers/solutions for [#8WeekSQLChallenge](https://8wee
 
 This repository contains all of my SQL submissions for the [#8WeekSQLChallenge](https://8weeksqlchallenge.com/ "8 Week SQL Challenge") created by [Danny Ma](https://www.datawithdanny.com/ "Data With Danny").
 
-In the summer of 2022 I completed Danny's Challenge and I found it to be the best SQL exercises found on the web.  However, these challenges were... challenging, many times I had to review other peoples work to figure out how to exactly get the correct answers.
+In the summer of 2022 I completed Danny's Challenge and I found it to be the best SQL exercises found on the web.  Many times I had to review other peoples work to figure out how to exactly get the correct answers.  This challenge pushes you beyond basic SQL and into intermediate/advance SQL techniques.
 
-This year (September 2023) I decided to revisit the challenge to brush up on my SQL and to fix errors, finish incomplete sections and refactor some of my SQL code as I have learned more efficient methods of getting the correct answer.  I will attempt to comment the code as much as necessary in order to help others who may be struggling with some of the questions.
+This year (September 2023) I decided to revisit the challenge to brush up on my SQL and to fix errors, finish incomplete sections and refactor some of my SQL code as I have learned more efficient/effective methods of getting the correct answer.  I will attempt to comment the code as much as necessary in order to help others who may be struggling with some of the questions.
 
-I would also like to acknowledge the GitHub repo's that were **essential** in helping me learn to how appoach the problems and find more efficient and effective solutions.  If you are are considering taking Danny Ma's Serious SQL course, I cannot recommend it enough.
+I would also like to acknowledge the GitHub repos that were **essential** in helping me learn to how appoach the problems and find more efficient and effective solutions.  If you are are considering taking Danny Ma's [Serious SQL](https://www.datawithdanny.com/), I cannot recommend it enough.
 
 - [Danny Ma](https://www.linkedin.com/in/datawithdanny)
 	- [Masterclass SQL Course (Free and available on Github)](https://github.com/DataWithDanny/sql-masterclass)
-	- [Serious SQL (Paid Course)](https://www.datawithdanny.com/)
+	- [Serious SQL (Paid Course)](https://www.datawithdanny.com/) :exclamation: Highly Recomended :exclamation:
 - [Katie Huang](https://github.com/katiehuangx)
 - [Leah Nguyen](https://github.com/ndleah)
 - [Yulia M.](https://github.com/muryulia/)
 
-All solutions were coded using PostgreSQL.
+All solutions were coded using the latest version of PostgreSQL within a Docker container.
 
 
 
