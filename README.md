@@ -11,7 +11,7 @@ I would also like to acknowledge the GitHub repos that were **essential** in hel
 
 - [Danny Ma](https://www.linkedin.com/in/datawithdanny)
 	- [Masterclass SQL Course (Free and available on Github)](https://github.com/DataWithDanny/sql-masterclass)
-	- [Serious SQL (Paid Course)](https://www.datawithdanny.com/) :exclamation: Highly Recomended :exclamation:
+	- [Serious SQL (Paid Course)](https://www.datawithdanny.com/) :exclamation: Highly Recommended :exclamation:
 - [Katie Huang](https://github.com/katiehuangx)
 - [Leah Nguyen](https://github.com/ndleah)
 - [Yulia M.](https://github.com/muryulia/)
