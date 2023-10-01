@@ -27,6 +27,4 @@ Three key datasets for this case study
 ## Case Study
 [Case Study #1 - Danny's Diner: SQL Solutions](./dannys_diner_solutions.md)
 
-<iframe width="560" height="315" src='https://dbdiagram.io/embed/65195f33ffbf5169f0d04e4d'> </iframe>
-
 :exclamation: If you find this repository helpful, please consider giving it a :star:. Thanks! :exclamation:

@@ -1,5 +1,5 @@
-## Balanced Tree
-### SQL Case Study #7
+## Fresh Segments
+### SQL Case Study #8
 
 **Author**: Jaime M. Shaker <br />
 **Email**: jaime.m.shaker@gmail.com <br />
